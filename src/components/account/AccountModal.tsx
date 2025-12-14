@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useAccount as useWagmiAccount, useBalance, useDisconnect } from "wagmi";
 import { useAccount } from "@/hooks/api/useAccount";
 import { useAuth } from "@/providers/AuthProvider";
+
+// USDT on BNB Chain (Binance-Peg)
+const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955" as const;
 import {
   Dialog,
   DialogContent,
@@ -32,7 +35,11 @@ interface AccountModalProps {
 
 export function AccountModal({ open, onOpenChange }: AccountModalProps) {
   const { address } = useWagmiAccount();
-  const { data: balance } = useBalance({ address });
+  const { data: bnbBalance } = useBalance({ address });
+  const { data: usdtBalance } = useBalance({
+    address,
+    token: USDT_ADDRESS,
+  });
   const { data: accountData, isLoading: accountLoading } = useAccount();
   const { isAuthenticated, logout } = useAuth();
   const { disconnect } = useDisconnect();
@@ -103,16 +110,24 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
             </div>
           </div>
 
-          {/* Balance */}
+          {/* Balances */}
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Balance</p>
-            <div className="p-3 rounded-lg bg-muted/50 border">
-              <span className="text-2xl font-bold">
-                {balance ? parseFloat(balance.formatted).toFixed(4) : "0.0000"}
-              </span>
-              <span className="text-muted-foreground ml-2">
-                {balance?.symbol || "BNB"}
-              </span>
+            <p className="text-xs text-muted-foreground">Balances</p>
+            <div className="grid grid-cols-2 gap-2">
+              {/* BNB Balance */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground mb-1">BNB</p>
+                <span className="text-lg font-bold">
+                  {bnbBalance ? parseFloat(bnbBalance.formatted).toFixed(4) : "0.0000"}
+                </span>
+              </div>
+              {/* USDT Balance */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground mb-1">USDT</p>
+                <span className="text-lg font-bold">
+                  {usdtBalance ? parseFloat(usdtBalance.formatted).toFixed(2) : "0.00"}
+                </span>
+              </div>
             </div>
           </div>
 

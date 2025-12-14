@@ -13,13 +13,19 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Wallet } from "lucide-react";
 import type { Market, OrderSide, OrderType, OutcomeType } from "@/types/api";
 
+// USDT on BNB Chain (Binance-Peg)
+const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955" as const;
+
 interface OrderFormProps {
   market: Market;
 }
 
 export function OrderForm({ market }: OrderFormProps) {
   const { address, isConnected } = useAccount();
-  const { data: balance } = useBalance({ address });
+  const { data: usdtBalance } = useBalance({
+    address,
+    token: USDT_ADDRESS,
+  });
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
   const createOrder = useCreateOrder();
@@ -93,10 +99,10 @@ export function OrderForm({ market }: OrderFormProps) {
       <CardHeader className="py-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm">Place Order</CardTitle>
-          {isConnected && balance && (
+          {isConnected && usdtBalance && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Wallet className="h-3.5 w-3.5" />
-              <span>{parseFloat(balance.formatted).toFixed(4)} {balance.symbol}</span>
+              <span>{parseFloat(usdtBalance.formatted).toFixed(2)} USDT</span>
             </div>
           )}
         </div>
