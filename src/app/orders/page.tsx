@@ -47,10 +47,27 @@ export default function OrdersPage() {
   const { data: markets } = useMarkets();
   const removeOrder = useRemoveOrder();
 
-  // Create market lookup map for titles
+  // Create market lookup map for titles and outcomes
   const marketTitleMap = useMemo(() => {
     if (!markets) return new Map<number, string>();
     return new Map(markets.map((m) => [m.id, m.title]));
+  }, [markets]);
+
+  // Create outcome lookup map: (marketId, tokenId) -> outcomeName (YES/NO)
+  const getOutcomeName = useMemo(() => {
+    if (!markets) return (_marketId: number, _tokenId: string) => "Unknown";
+
+    const outcomeMap = new Map<string, string>();
+    for (const market of markets) {
+      for (const outcome of market.outcomes || []) {
+        // Key: "marketId-tokenId"
+        outcomeMap.set(`${market.id}-${outcome.onChainId}`, outcome.name);
+      }
+    }
+
+    return (marketId: number, tokenId: string) => {
+      return outcomeMap.get(`${marketId}-${tokenId}`) || "Unknown";
+    };
   }, [markets]);
 
   const handleRemoveOrder = async (orderId: string) => {
@@ -240,6 +257,7 @@ export default function OrdersPage() {
                 <TableRow>
                   <TableHead>Market</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Outcome</TableHead>
                   <TableHead>Side</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Filled</TableHead>
@@ -261,6 +279,20 @@ export default function OrdersPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{order.strategy}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const outcomeName = getOutcomeName(order.marketId, order.tokenId);
+                        const isYes = outcomeName.toLowerCase() === "yes";
+                        return (
+                          <Badge
+                            variant="secondary"
+                            className={isYes ? "bg-green-600" : "bg-red-600"}
+                          >
+                            {outcomeName}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <span
