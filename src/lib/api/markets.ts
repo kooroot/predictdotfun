@@ -9,12 +9,31 @@ export interface GetMarketsParams {
   cursor?: string;
 }
 
+// Map frontend status to API status
+function mapStatus(status?: string): string | undefined {
+  if (!status) return undefined;
+  const statusMap: Record<string, string> = {
+    active: "REGISTERED",
+    resolved: "RESOLVED",
+  };
+  return statusMap[status] || status;
+}
+
 export const marketsApi = {
   getMarkets: async (params?: GetMarketsParams): Promise<Market[]> => {
+    // Remove status from API params (API doesn't support it)
+    const { status, ...apiParams } = params || {};
     const response = await apiClient.get<MarketsResponse>(MARKET_ENDPOINTS.getMarkets, {
-      params,
+      params: Object.keys(apiParams).length > 0 ? apiParams : undefined,
     });
-    return response.data.data;
+
+    // Client-side filtering by status
+    let markets = response.data.data;
+    if (status) {
+      const mappedStatus = mapStatus(status);
+      markets = markets.filter(m => m.status === mappedStatus);
+    }
+    return markets;
   },
 
   getMarketById: async (marketId: string): Promise<Market | null> => {

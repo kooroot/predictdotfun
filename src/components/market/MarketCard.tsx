@@ -23,10 +23,10 @@ export function MarketCard({ market }: MarketCardProps) {
               {market.title}
             </CardTitle>
             <Badge
-              variant={market.status === "active" ? "default" : "secondary"}
+              variant={market.status === "REGISTERED" ? "default" : "secondary"}
               className="shrink-0"
             >
-              {market.status}
+              {market.status === "REGISTERED" ? "Active" : market.status}
             </Badge>
           </div>
           <Badge variant="outline" className="w-fit text-xs">

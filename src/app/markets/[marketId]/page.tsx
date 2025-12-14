@@ -19,7 +19,10 @@ export default function MarketDetailPage() {
   const { isConfigured, isRequired } = useApiKey();
 
   const { data: market, isLoading: marketLoading } = useMarket(marketId);
-  const { data: orderbook, isLoading: orderbookLoading } = useOrderbook(marketId);
+  const isActiveMarket = market?.status === "REGISTERED";
+  const { data: orderbook, isLoading: orderbookLoading } = useOrderbook(
+    isActiveMarket ? marketId : undefined
+  );
   const { data: stats } = useMarketStats(marketId);
 
   if (isRequired && !isConfigured) {
@@ -65,8 +68,8 @@ export default function MarketDetailPage() {
                   <CardTitle className="text-2xl">{market.title}</CardTitle>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{market.categorySlug}</Badge>
-                    <Badge variant={market.status === "active" ? "default" : "secondary"}>
-                      {market.status}
+                    <Badge variant={market.status === "REGISTERED" ? "default" : "secondary"}>
+                      {market.status === "REGISTERED" ? "Active" : market.status}
                     </Badge>
                   </div>
                 </div>
@@ -157,8 +160,23 @@ export default function MarketDetailPage() {
 
         {/* Trading Panel - Right column */}
         <div className="space-y-6">
-          <OrderBook orderbook={orderbook} isLoading={orderbookLoading} />
-          <OrderForm market={market} />
+          {isActiveMarket ? (
+            <>
+              <OrderBook orderbook={orderbook} isLoading={orderbookLoading} />
+              <OrderForm market={market} />
+            </>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Market Resolved</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">
+                  This market has been resolved. Trading is no longer available.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
