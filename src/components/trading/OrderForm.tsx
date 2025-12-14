@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAccount, useBalance, useSignTypedData, usePublicClient } from "wagmi";
+import { hashTypedData } from "viem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,6 @@ import { Loader2, Wallet } from "lucide-react";
 import type { Market, OrderSide, OrderType, OutcomeType, SignedOrder } from "@/types/api";
 import {
   buildOrderStruct,
-  computeOrderHash,
   buildCreateOrderRequest,
 } from "@/lib/order/builder";
 
@@ -40,17 +40,17 @@ const getVerifyingContract = (
   chainId: number,
   isNegRisk: boolean,
   isYieldBearing: boolean
-): string => {
+): `0x${string}` => {
   if (chainId === 56) {
     // Mainnet
-    if (isYieldBearing && isNegRisk) return CONTRACTS.mainnet.YIELD_BEARING_NEG_RISK_CTF_EXCHANGE;
-    if (isYieldBearing) return CONTRACTS.mainnet.YIELD_BEARING_CTF_EXCHANGE;
-    if (isNegRisk) return CONTRACTS.mainnet.NEG_RISK_CTF_EXCHANGE;
-    return CONTRACTS.mainnet.CTF_EXCHANGE;
+    if (isYieldBearing && isNegRisk) return CONTRACTS.mainnet.YIELD_BEARING_NEG_RISK_CTF_EXCHANGE as `0x${string}`;
+    if (isYieldBearing) return CONTRACTS.mainnet.YIELD_BEARING_CTF_EXCHANGE as `0x${string}`;
+    if (isNegRisk) return CONTRACTS.mainnet.NEG_RISK_CTF_EXCHANGE as `0x${string}`;
+    return CONTRACTS.mainnet.CTF_EXCHANGE as `0x${string}`;
   } else {
     // Testnet
-    if (isYieldBearing) return CONTRACTS.testnet.YIELD_BEARING_CTF_EXCHANGE;
-    return CONTRACTS.testnet.CTF_EXCHANGE;
+    if (isYieldBearing) return CONTRACTS.testnet.YIELD_BEARING_CTF_EXCHANGE as `0x${string}`;
+    return CONTRACTS.testnet.CTF_EXCHANGE as `0x${string}`;
   }
 };
 
@@ -135,13 +135,10 @@ export function OrderForm({ market }: OrderFormProps) {
       console.log("[OrderForm] JWT exists:", !!jwt);
       console.log("[OrderForm] isAuthenticated:", isAuthenticated);
 
-      // Step 0: Get nonce from wallet
-      let nonce = "0";
-      if (publicClient && address) {
-        const txCount = await publicClient.getTransactionCount({ address });
-        nonce = txCount.toString();
-      }
-      console.log("[OrderForm] Wallet nonce:", nonce);
+      // Note: Order nonce is different from wallet transaction nonce
+      // SDK example uses nonce: 0n for orders
+      const nonce = "0";
+      console.log("[OrderForm] Order nonce:", nonce);
 
       // Step 1: Build order struct
       const orderStruct = buildOrderStruct({
@@ -154,40 +151,50 @@ export function OrderForm({ market }: OrderFormProps) {
         nonce,
       });
 
-      // Step 2: Compute order hash
-      const orderHash = computeOrderHash(orderStruct);
-
-      // Step 3: Sign the order with EIP-712
-      // Determine market type for correct verifying contract
+      // Step 2: Determine market type for correct verifying contract
       const isNegRisk = market.isNegRisk || false;
       const isYieldBearing = market.isYieldBearing || false;
       const domain = getEIP712Domain(chainId || 56, isNegRisk, isYieldBearing);
 
+      console.log("[OrderForm] Market type:", { isNegRisk, isYieldBearing, marketId: market.id });
       console.log("[OrderForm] EIP-712 Domain:", domain);
       console.log("[OrderForm] Order struct:", orderStruct);
 
+      // Build the EIP-712 message (uses BigInt for uint256 types)
+      const message = {
+        salt: BigInt(orderStruct.salt),
+        maker: orderStruct.maker as `0x${string}`,
+        signer: orderStruct.signer as `0x${string}`,
+        taker: orderStruct.taker as `0x${string}`,
+        tokenId: BigInt(orderStruct.tokenId),
+        makerAmount: BigInt(orderStruct.makerAmount),
+        takerAmount: BigInt(orderStruct.takerAmount),
+        expiration: BigInt(orderStruct.expiration),  // Now a number, convert to BigInt for signing
+        nonce: BigInt(orderStruct.nonce),  // Now a number
+        feeRateBps: BigInt(orderStruct.feeRateBps),  // Now a number
+        side: orderStruct.side,
+        signatureType: orderStruct.signatureType,
+      };
+
+      // Step 3: Compute EIP-712 hash using viem (includes domain separator)
+      const orderHash = hashTypedData({
+        domain,
+        types: ORDER_TYPES,
+        primaryType: "Order",
+        message,
+      });
+
+      console.log("[OrderForm] EIP-712 Hash:", orderHash);
+
+      // Step 4: Sign the order with EIP-712
       const signature = await signTypedDataAsync({
         domain,
         types: ORDER_TYPES,
         primaryType: "Order",
-        message: {
-          // Salt is uint256, pass as BigInt directly
-          salt: BigInt(orderStruct.salt),
-          maker: orderStruct.maker as `0x${string}`,
-          signer: orderStruct.signer as `0x${string}`,
-          taker: orderStruct.taker as `0x${string}`,
-          tokenId: BigInt(orderStruct.tokenId),
-          makerAmount: BigInt(orderStruct.makerAmount),
-          takerAmount: BigInt(orderStruct.takerAmount),
-          expiration: BigInt(orderStruct.expiration),
-          nonce: BigInt(orderStruct.nonce),
-          feeRateBps: BigInt(orderStruct.feeRateBps),
-          side: orderStruct.side,
-          signatureType: orderStruct.signatureType,
-        },
+        message,
       });
 
-      // Step 4: Build complete signed order
+      // Step 5: Build complete signed order
       const signedOrder: SignedOrder = {
         ...orderStruct,
         hash: orderHash,

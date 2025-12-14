@@ -105,6 +105,7 @@ export interface Order {
 }
 
 // Signed order structure for API submission
+// Note: API expects expiration, nonce, feeRateBps as numbers, not strings
 export interface SignedOrder {
   hash: string;
   salt: string;
@@ -114,9 +115,9 @@ export interface SignedOrder {
   tokenId: string;
   makerAmount: string;
   takerAmount: string;
-  expiration: string;
-  nonce: string;
-  feeRateBps: string;
+  expiration: number;  // Unix timestamp in seconds (must be in the future)
+  nonce: number;
+  feeRateBps: number;
   side: number; // 0 = BUY, 1 = SELL
   signatureType: number;
   signature: string;

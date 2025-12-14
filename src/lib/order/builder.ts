@@ -93,13 +93,14 @@ export function calculateAmounts(
   }
 }
 
-// Get expiration timestamp
-export function getExpiration(minutes: number = 60): string {
+// Get expiration timestamp (returns number, not string - API requirement)
+export function getExpiration(minutes: number = 60): number {
   const expirationMs = Date.now() + minutes * 60 * 1000;
-  return Math.floor(expirationMs / 1000).toString();
+  return Math.floor(expirationMs / 1000);
 }
 
 // Build order struct (before signing)
+// Note: expiration, nonce, feeRateBps must be numbers (API requirement)
 export function buildOrderStruct(params: BuildOrderParams): Omit<SignedOrder, "hash" | "signature"> {
   const salt = generateSalt();
   const tokenId = getTokenId(params.market, params.outcome);
@@ -120,9 +121,9 @@ export function buildOrderStruct(params: BuildOrderParams): Omit<SignedOrder, "h
     tokenId,
     makerAmount,
     takerAmount,
-    expiration,
-    nonce: params.nonce || "0",
-    feeRateBps: params.market.feeRateBps.toString(),
+    expiration,  // Already a number from getExpiration()
+    nonce: params.nonce ? parseInt(params.nonce, 10) : 0,  // Must be number
+    feeRateBps: params.market.feeRateBps,  // Already a number from Market type
     side: ORDER_SIDE[params.side],
     signatureType: SIGNATURE_TYPE.EOA, // API only supports 0
   };
@@ -149,9 +150,9 @@ export function computeOrderHash(order: Omit<SignedOrder, "hash" | "signature">)
       BigInt(order.tokenId),
       BigInt(order.makerAmount),
       BigInt(order.takerAmount),
-      BigInt(order.expiration),
-      BigInt(order.nonce),
-      BigInt(order.feeRateBps),
+      BigInt(order.expiration),  // Now a number, convert to BigInt
+      BigInt(order.nonce),  // Now a number
+      BigInt(order.feeRateBps),  // Now a number
       order.side,
       order.signatureType,
     ]
