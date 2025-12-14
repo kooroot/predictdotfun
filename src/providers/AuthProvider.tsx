@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from "react";
 import { useAccount, useSignMessage } from "wagmi";
-import { jwtStorage } from "@/lib/utils/storage";
+import { jwtStorage, apiKeyStorage } from "@/lib/utils/storage";
 import { useNetwork } from "./NetworkProvider";
 
 interface AuthContextValue {
@@ -26,7 +26,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const { config } = useNetwork();
+  const { config, isMainnet } = useNetwork();
 
   const [jwt, setJwt] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -65,25 +65,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    // Mainnet requires API key
+    const apiKey = apiKeyStorage.get();
+    if (isMainnet && !apiKey) {
+      setError("API key required for mainnet");
+      return false;
+    }
+
     setIsAuthenticating(true);
     setError(null);
 
     try {
+      // Build headers with API key for mainnet
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        "x-network": isMainnet ? "mainnet" : "testnet",
+      };
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
+      }
+
       // Step 1: Get message to sign (use proxy to avoid CORS)
-      const messageResponse = await fetch(`/api/proxy/v1/auth/message?address=${address}`, {
+      const messageResponse = await fetch("/api/proxy/v1/auth/message", {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-network": config.requiresApiKey ? "mainnet" : "testnet",
-        },
+        headers,
       });
 
       if (!messageResponse.ok) {
-        throw new Error("Failed to get auth message");
+        const errorData = await messageResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to get auth message");
       }
 
       const messageData = await messageResponse.json();
-      const message = messageData.data?.message || messageData.message;
+      const message = messageData.data?.message;
 
       if (!message) {
         throw new Error("Invalid auth message response");
@@ -93,12 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const signature = await signMessageAsync({ message });
 
       // Step 3: Get JWT with signature (use proxy to avoid CORS)
-      const jwtResponse = await fetch(`/api/proxy/v1/auth`, {
+      const jwtResponse = await fetch("/api/proxy/v1/auth", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-network": config.requiresApiKey ? "mainnet" : "testnet",
-        },
+        headers,
         body: JSON.stringify({
           signer: address,
           message: message,
@@ -107,11 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!jwtResponse.ok) {
-        throw new Error("Failed to get JWT token");
+        const errorData = await jwtResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to get JWT token");
       }
 
       const jwtData = await jwtResponse.json();
-      const token = jwtData.data?.token || jwtData.token;
+      const token = jwtData.data?.token;
 
       if (!token) {
         throw new Error("Invalid JWT response");
@@ -130,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticating(false);
     }
-  }, [address, signMessageAsync, config.baseUrl]);
+  }, [address, signMessageAsync, isMainnet]);
 
   const logout = useCallback(() => {
     setJwt(null);

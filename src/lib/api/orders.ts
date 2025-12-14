@@ -23,7 +23,9 @@ export const ordersApi = {
   },
 
   createOrder: async (params: CreateOrderParams): Promise<Order> => {
-    const response = await apiClient.post<ApiResponse<Order>>(ORDER_ENDPOINTS.createOrder, params);
+    const response = await apiClient.post<ApiResponse<Order>>(ORDER_ENDPOINTS.createOrder, {
+      data: params,
+    });
     return response.data.data;
   },
 

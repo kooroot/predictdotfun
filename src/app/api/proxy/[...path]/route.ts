@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Force dynamic rendering (no caching)
+export const dynamic = "force-dynamic";
+
 const API_URLS = {
   testnet: "https://api-testnet.predict.fun",
   mainnet: "https://api.predict.fun",
@@ -22,8 +25,16 @@ export async function GET(
       headers,
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      return NextResponse.json(data, { status: response.status });
+    } catch {
+      return NextResponse.json(
+        { success: false, error: text || "Unknown error" },
+        { status: response.status }
+      );
+    }
   } catch (error) {
     console.error("Proxy GET error:", error);
     return NextResponse.json(
@@ -51,8 +62,16 @@ export async function POST(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      return NextResponse.json(data, { status: response.status });
+    } catch {
+      return NextResponse.json(
+        { success: false, error: text || "Unknown error" },
+        { status: response.status }
+      );
+    }
   } catch (error) {
     console.error("Proxy POST error:", error);
     return NextResponse.json(

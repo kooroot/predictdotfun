@@ -4,10 +4,10 @@ export const AUTH_ENDPOINTS = {
   getJwt: "/v1/auth",
 } as const;
 
-// Accounts
+// Account (singular)
 export const ACCOUNT_ENDPOINTS = {
-  getAccount: "/v1/accounts/me",
-  setReferral: "/v1/accounts/referral",
+  getAccount: "/v1/account",
+  setReferral: "/v1/account/referral",
 } as const;
 
 // Orders

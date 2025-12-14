@@ -11,7 +11,7 @@ export const accountsApi = {
   setReferral: async (referralCode: string): Promise<{ success: boolean }> => {
     const response = await apiClient.post<ApiResponse<{ success: boolean }>>(
       ACCOUNT_ENDPOINTS.setReferral,
-      { referralCode }
+      { data: { referralCode } }
     );
     return response.data.data;
   },
