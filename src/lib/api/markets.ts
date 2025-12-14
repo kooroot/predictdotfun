@@ -21,18 +21,30 @@ function mapStatus(status?: string): string | undefined {
 
 export const marketsApi = {
   getMarkets: async (params?: GetMarketsParams): Promise<Market[]> => {
-    // Remove status from API params (API doesn't support it)
-    const { status, ...apiParams } = params || {};
-    const response = await apiClient.get<MarketsResponse>(MARKET_ENDPOINTS.getMarkets, {
-      params: Object.keys(apiParams).length > 0 ? apiParams : undefined,
-    });
+    const { status, category, ...paginationParams } = params || {};
+
+    let markets: Market[];
+
+    // If category is specified, use the category endpoint (contains embedded markets)
+    if (category) {
+      const categoryResponse = await apiClient.get<ApiResponse<Category>>(
+        CATEGORY_ENDPOINTS.getCategoryBySlug(category)
+      );
+      markets = categoryResponse.data.data.markets || [];
+    } else {
+      // Get all markets from the markets endpoint
+      const response = await apiClient.get<MarketsResponse>(MARKET_ENDPOINTS.getMarkets, {
+        params: Object.keys(paginationParams).length > 0 ? paginationParams : undefined,
+      });
+      markets = response.data.data;
+    }
 
     // Client-side filtering by status
-    let markets = response.data.data;
     if (status) {
       const mappedStatus = mapStatus(status);
       markets = markets.filter(m => m.status === mappedStatus);
     }
+
     return markets;
   },
 
