@@ -15,7 +15,7 @@ export const ORDER_ENDPOINTS = {
   getOrders: "/v1/orders",
   getOrderByHash: (hash: string) => `/v1/orders/${hash}`,
   createOrder: "/v1/orders",
-  cancelOrders: "/v1/orders/cancel",
+  removeOrders: "/v1/orders/remove",
 } as const;
 
 // Categories

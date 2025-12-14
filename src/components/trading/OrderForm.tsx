@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useAccount, useBalance, useSignTypedData } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,40 @@ import { useCreateOrder } from "@/hooks/api/useOrders";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Wallet } from "lucide-react";
-import type { Market, OrderSide, OrderType, OutcomeType } from "@/types/api";
+import type { Market, OrderSide, OrderType, OutcomeType, SignedOrder } from "@/types/api";
+import {
+  buildOrderStruct,
+  computeOrderHash,
+  buildCreateOrderRequest,
+} from "@/lib/order/builder";
 
 // USDT on BNB Chain (Binance-Peg)
 const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955" as const;
+
+// EIP-712 Domain for Predict.fun (BNB Chain)
+const EIP712_DOMAIN = {
+  name: "Predict.fun",
+  version: "1",
+  chainId: 56, // BNB Chain mainnet
+} as const;
+
+// EIP-712 Order Type
+const ORDER_TYPES = {
+  Order: [
+    { name: "salt", type: "bytes32" },
+    { name: "maker", type: "address" },
+    { name: "signer", type: "address" },
+    { name: "taker", type: "address" },
+    { name: "tokenId", type: "uint256" },
+    { name: "makerAmount", type: "uint256" },
+    { name: "takerAmount", type: "uint256" },
+    { name: "expiration", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+    { name: "feeRateBps", type: "uint256" },
+    { name: "side", type: "uint8" },
+    { name: "signatureType", type: "uint8" },
+  ],
+} as const;
 
 interface OrderFormProps {
   market: Market;
@@ -26,6 +56,7 @@ export function OrderForm({ market }: OrderFormProps) {
     address,
     token: USDT_ADDRESS,
   });
+  const { signTypedDataAsync } = useSignTypedData();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
   const createOrder = useCreateOrder();
@@ -35,11 +66,12 @@ export function OrderForm({ market }: OrderFormProps) {
   const [outcome, setOutcome] = useState<OutcomeType>("YES");
   const [price, setPrice] = useState("");
   const [size, setSize] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast({
         title: "Wallet not connected",
         description: "Please connect your wallet first.",
@@ -60,16 +92,59 @@ export function OrderForm({ market }: OrderFormProps) {
       }
     }
 
+    setIsSubmitting(true);
+
     try {
-      await createOrder.mutateAsync({
-        marketId: String(market.id),
+      // Step 1: Build order struct
+      const orderStruct = buildOrderStruct({
+        market,
+        maker: address,
         side,
-        type: orderType,
         outcome,
-        price: orderType === "LIMIT" ? price : undefined,
+        price: orderType === "LIMIT" ? price : "0.5", // Default price for market orders
         size,
-        slippageBps: orderType === "MARKET" ? 100 : undefined, // 1% slippage for market orders
       });
+
+      // Step 2: Compute order hash
+      const orderHash = computeOrderHash(orderStruct);
+
+      // Step 3: Sign the order with EIP-712
+      const signature = await signTypedDataAsync({
+        domain: EIP712_DOMAIN,
+        types: ORDER_TYPES,
+        primaryType: "Order",
+        message: {
+          salt: orderStruct.salt as `0x${string}`,
+          maker: orderStruct.maker as `0x${string}`,
+          signer: orderStruct.signer as `0x${string}`,
+          taker: orderStruct.taker as `0x${string}`,
+          tokenId: BigInt(orderStruct.tokenId),
+          makerAmount: BigInt(orderStruct.makerAmount),
+          takerAmount: BigInt(orderStruct.takerAmount),
+          expiration: BigInt(orderStruct.expiration),
+          nonce: BigInt(orderStruct.nonce),
+          feeRateBps: BigInt(orderStruct.feeRateBps),
+          side: orderStruct.side,
+          signatureType: orderStruct.signatureType,
+        },
+      });
+
+      // Step 4: Build complete signed order
+      const signedOrder: SignedOrder = {
+        ...orderStruct,
+        hash: orderHash,
+        signature,
+      };
+
+      // Step 5: Build and submit request
+      const request = buildCreateOrderRequest(
+        signedOrder,
+        orderType === "LIMIT" ? price : "0.5",
+        orderType,
+        orderType === "MARKET" ? "100" : undefined // 1% slippage for market orders
+      );
+
+      await createOrder.mutateAsync(request);
 
       toast({
         title: "Order created",
@@ -80,11 +155,14 @@ export function OrderForm({ market }: OrderFormProps) {
       setPrice("");
       setSize("");
     } catch (error) {
+      console.error("Order creation error:", error);
       toast({
         title: "Order failed",
         description: error instanceof Error ? error.message : "Failed to create order",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -188,9 +266,9 @@ export function OrderForm({ market }: OrderFormProps) {
               type="submit"
               onClick={() => setSide("BUY")}
               className="bg-green-600 hover:bg-green-700"
-              disabled={createOrder.isPending || isAuthenticating}
+              disabled={isSubmitting || isAuthenticating}
             >
-              {(createOrder.isPending || isAuthenticating) && side === "BUY" ? (
+              {(isSubmitting || isAuthenticating) && side === "BUY" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
               Buy
@@ -199,9 +277,9 @@ export function OrderForm({ market }: OrderFormProps) {
               type="submit"
               onClick={() => setSide("SELL")}
               className="bg-red-600 hover:bg-red-700"
-              disabled={createOrder.isPending || isAuthenticating}
+              disabled={isSubmitting || isAuthenticating}
             >
-              {(createOrder.isPending || isAuthenticating) && side === "SELL" ? (
+              {(isSubmitting || isAuthenticating) && side === "SELL" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
               Sell

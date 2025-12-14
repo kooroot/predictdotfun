@@ -104,6 +104,35 @@ export interface Order {
   updatedAt: string;
 }
 
+// Signed order structure for API submission
+export interface SignedOrder {
+  hash: string;
+  salt: string;
+  maker: string;
+  signer: string;
+  taker: string;
+  tokenId: string;
+  makerAmount: string;
+  takerAmount: string;
+  expiration: string;
+  nonce: string;
+  feeRateBps: string;
+  side: number; // 0 = BUY, 1 = SELL
+  signatureType: number;
+  signature: string;
+}
+
+// API request body for creating order
+export interface CreateOrderRequest {
+  data: {
+    pricePerShare: string;
+    strategy: "LIMIT" | "MARKET";
+    slippageBps?: string;
+    order: SignedOrder;
+  };
+}
+
+// Helper params for building order (used in UI)
 export interface CreateOrderParams {
   marketId: string;
   side: OrderSide;
@@ -112,6 +141,13 @@ export interface CreateOrderParams {
   price?: string;
   size: string;
   slippageBps?: number;
+}
+
+// API request body for removing orders
+export interface RemoveOrdersRequest {
+  data: {
+    ids: string[];
+  };
 }
 
 // Position types

@@ -5,7 +5,7 @@ import { ordersApi, GetOrdersParams } from "@/lib/api/orders";
 import { useNetwork } from "@/providers/NetworkProvider";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
-import type { CreateOrderParams } from "@/types/api";
+import type { CreateOrderRequest } from "@/types/api";
 
 export function useOrders(params?: GetOrdersParams) {
   const { network } = useNetwork();
@@ -40,7 +40,7 @@ export function useCreateOrder() {
   const { isAuthenticated, authenticate } = useAuth();
 
   return useMutation({
-    mutationFn: async (params: CreateOrderParams) => {
+    mutationFn: async (request: CreateOrderRequest) => {
       // Ensure user is authenticated
       if (!isAuthenticated) {
         const success = await authenticate();
@@ -49,35 +49,35 @@ export function useCreateOrder() {
         }
       }
 
-      return ordersApi.createOrder(params);
+      return ordersApi.createOrder(request);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ["orders", network] });
-      queryClient.invalidateQueries({ queryKey: ["orderbook", network, variables.marketId] });
+      queryClient.invalidateQueries({ queryKey: ["orderbook", network] });
       queryClient.invalidateQueries({ queryKey: ["positions", network] });
     },
   });
 }
 
-export function useCancelOrder() {
+export function useRemoveOrder() {
   const queryClient = useQueryClient();
   const { network } = useNetwork();
 
   return useMutation({
-    mutationFn: (orderHash: string) => ordersApi.cancelOrder(orderHash),
+    mutationFn: (orderId: string) => ordersApi.removeOrder(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders", network] });
     },
   });
 }
 
-export function useCancelOrders() {
+export function useRemoveOrders() {
   const queryClient = useQueryClient();
   const { network } = useNetwork();
 
   return useMutation({
-    mutationFn: (orderHashes: string[]) => ordersApi.cancelOrders(orderHashes),
+    mutationFn: (orderIds: string[]) => ordersApi.removeOrders(orderIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders", network] });
     },

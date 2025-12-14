@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useOrders, useCancelOrder } from "@/hooks/api/useOrders";
+import { useOrders, useRemoveOrder } from "@/hooks/api/useOrders";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
 import { ApiKeyRequired } from "@/components/layout/ApiKeyRequired";
@@ -43,18 +43,18 @@ export default function OrdersPage() {
   const { data: orders, isLoading } = useOrders({
     status: statusFilter === "all" ? undefined : statusFilter,
   });
-  const cancelOrder = useCancelOrder();
+  const removeOrder = useRemoveOrder();
 
-  const handleCancelOrder = async (orderHash: string) => {
+  const handleRemoveOrder = async (orderId: string) => {
     try {
-      await cancelOrder.mutateAsync(orderHash);
+      await removeOrder.mutateAsync(orderId);
       toast({
-        title: "Order cancelled",
-        description: "Your order has been cancelled successfully",
+        title: "Order removed",
+        description: "Your order has been removed successfully",
       });
     } catch (error) {
       toast({
-        title: "Failed to cancel order",
+        title: "Failed to remove order",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
@@ -213,10 +213,10 @@ export default function OrdersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleCancelOrder(order.hash)}
-                          disabled={cancelOrder.isPending}
+                          onClick={() => handleRemoveOrder(order.id)}
+                          disabled={removeOrder.isPending}
                         >
-                          {cancelOrder.isPending ? (
+                          {removeOrder.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <X className="h-4 w-4" />

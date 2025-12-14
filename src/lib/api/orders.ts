@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import { ORDER_ENDPOINTS } from "./endpoints";
-import type { Order, CreateOrderParams, ApiResponse, PaginatedResponse } from "@/types/api";
+import type { Order, CreateOrderRequest, ApiResponse, PaginatedResponse } from "@/types/api";
 
 export interface GetOrdersParams {
   status?: "open" | "filled" | "partial" | "cancelled" | "all";
@@ -22,24 +22,29 @@ export const ordersApi = {
     return response.data.data;
   },
 
-  createOrder: async (params: CreateOrderParams): Promise<Order> => {
-    const response = await apiClient.post<ApiResponse<Order>>(ORDER_ENDPOINTS.createOrder, {
-      data: params,
-    });
+  // Create order with signed order data
+  createOrder: async (request: CreateOrderRequest): Promise<Order> => {
+    const response = await apiClient.post<ApiResponse<Order>>(
+      ORDER_ENDPOINTS.createOrder,
+      request
+    );
     return response.data.data;
   },
 
-  cancelOrders: async (orderHashes: string[]): Promise<{ cancelled: string[] }> => {
-    const response = await apiClient.delete<ApiResponse<{ cancelled: string[] }>>(
-      ORDER_ENDPOINTS.cancelOrders,
+  // Remove orders from orderbook (POST /v1/orders/remove)
+  removeOrders: async (orderIds: string[]): Promise<{ removed: string[] }> => {
+    const response = await apiClient.post<ApiResponse<{ removed: string[] }>>(
+      ORDER_ENDPOINTS.removeOrders,
       {
-        data: { orderHashes },
+        data: {
+          ids: orderIds,
+        },
       }
     );
     return response.data.data;
   },
 
-  cancelOrder: async (orderHash: string): Promise<{ cancelled: string[] }> => {
-    return ordersApi.cancelOrders([orderHash]);
+  removeOrder: async (orderId: string): Promise<{ removed: string[] }> => {
+    return ordersApi.removeOrders([orderId]);
   },
 };
