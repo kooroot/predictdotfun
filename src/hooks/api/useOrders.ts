@@ -18,16 +18,27 @@ export function useOrders(params?: GetOrdersParams) {
       // Fetch orders from API
       const apiOrders = await ordersApi.getOrders(params);
 
-      // If we got orders from API, use those
-      if (apiOrders.length > 0) {
-        return apiOrders;
-      }
-
-      // Otherwise, try to fetch from locally stored hashes
-      // This handles market orders that don't appear in the list endpoint
+      // Also fetch locally stored hash orders (for market orders)
+      // Only for "all" status or no status filter
       if (!params?.status || params.status === "all") {
         const localOrders = await ordersApi.getOrdersByStoredHashes();
-        return localOrders;
+
+        // Merge and deduplicate by hash
+        const orderMap = new Map<string, Order>();
+
+        // Add API orders first
+        for (const order of apiOrders) {
+          orderMap.set(order.hash, order);
+        }
+
+        // Add local orders (won't overwrite if already exists)
+        for (const order of localOrders) {
+          if (!orderMap.has(order.hash)) {
+            orderMap.set(order.hash, order);
+          }
+        }
+
+        return Array.from(orderMap.values());
       }
 
       return apiOrders;

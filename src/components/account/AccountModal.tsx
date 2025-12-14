@@ -4,7 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAccount as useWagmiAccount, useBalance, useDisconnect } from "wagmi";
 import { useAccount } from "@/hooks/api/useAccount";
+import { useOrders } from "@/hooks/api/useOrders";
 import { useAuth } from "@/providers/AuthProvider";
+import { formatNumber } from "@/lib/utils/format";
 
 // USDT on BNB Chain (Binance-Peg)
 const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955" as const;
@@ -41,13 +43,21 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
     token: USDT_ADDRESS,
   });
   const { data: accountData, isLoading: accountLoading } = useAccount();
+  const { data: orders } = useOrders();
   const { isAuthenticated, logout } = useAuth();
   const { disconnect } = useDisconnect();
-  const [copied, setCopied] = useState<"address" | "deposit" | null>(null);
+  const [copied, setCopied] = useState<"address" | null>(null);
 
-  const copyToClipboard = async (text: string, type: "address" | "deposit") => {
+  // Calculate trading stats
+  const totalOrders = orders?.length || 0;
+  const filledOrders = orders?.filter((o) => o.status === "FILLED").length || 0;
+  const totalVolume = orders?.reduce((sum, order) => {
+    return sum + parseFloat(order.amountFilled || "0") / 1e18;
+  }, 0) || 0;
+
+  const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
-    setCopied(type);
+    setCopied("address");
     setTimeout(() => setCopied(null), 2000);
   };
 
@@ -84,7 +94,7 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => address && copyToClipboard(address, "address")}
+                  onClick={() => address && copyToClipboard(address)}
                 >
                   {copied === "address" ? (
                     <Check className="h-4 w-4 text-green-500" />
@@ -131,37 +141,24 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
             </div>
           </div>
 
-          {/* Deposit Address (from API) */}
+          {/* Trading Stats */}
           {isAuthenticated && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Deposit Address</p>
-              {accountLoading ? (
-                <Skeleton className="h-12 w-full" />
-              ) : accountData?.depositAddress ? (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                  <span className="font-mono text-sm">
-                    {truncateAddress(accountData.depositAddress)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      copyToClipboard(accountData.depositAddress, "deposit")
-                    }
-                  >
-                    {copied === "deposit" ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+              <p className="text-xs text-muted-foreground">Trading Stats</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-3 rounded-lg bg-muted/50 border text-center">
+                  <p className="text-lg font-bold">{totalOrders}</p>
+                  <p className="text-xs text-muted-foreground">Orders</p>
                 </div>
-              ) : (
-                <div className="p-3 rounded-lg bg-muted/50 border text-sm text-muted-foreground">
-                  No deposit address
+                <div className="p-3 rounded-lg bg-muted/50 border text-center">
+                  <p className="text-lg font-bold text-green-500">{filledOrders}</p>
+                  <p className="text-xs text-muted-foreground">Filled</p>
                 </div>
-              )}
+                <div className="p-3 rounded-lg bg-muted/50 border text-center">
+                  <p className="text-lg font-bold text-purple-500">{formatNumber(totalVolume, 2)}</p>
+                  <p className="text-xs text-muted-foreground">Volume</p>
+                </div>
+              </div>
             </div>
           )}
 
