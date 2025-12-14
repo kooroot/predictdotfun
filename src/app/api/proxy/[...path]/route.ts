@@ -130,5 +130,12 @@ function buildHeaders(request: NextRequest): HeadersInit {
     headers["Authorization"] = auth;
   }
 
+  // Debug: Log headers being forwarded
+  console.log("[Proxy] Forwarding headers:", {
+    hasApiKey: !!apiKey,
+    hasAuth: !!auth,
+    authPrefix: auth?.substring(0, 20) + "...",
+  });
+
   return headers;
 }

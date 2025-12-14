@@ -24,11 +24,23 @@ export const ordersApi = {
 
   // Create order with signed order data
   createOrder: async (request: CreateOrderRequest): Promise<Order> => {
-    const response = await apiClient.post<ApiResponse<Order>>(
-      ORDER_ENDPOINTS.createOrder,
-      request
-    );
-    return response.data.data;
+    try {
+      const response = await apiClient.post<ApiResponse<Order>>(
+        ORDER_ENDPOINTS.createOrder,
+        request
+      );
+      return response.data.data;
+    } catch (error: unknown) {
+      // Log the full error response for debugging
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown; status?: number } };
+        console.error("[createOrder] API Error:", {
+          status: axiosError.response?.status,
+          data: axiosError.response?.data,
+        });
+      }
+      throw error;
+    }
   },
 
   // Remove orders from orderbook (POST /v1/orders/remove)

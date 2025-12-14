@@ -50,6 +50,11 @@ function createApiClient(): AxiosInstance {
         config.headers["Authorization"] = `Bearer ${jwt}`;
       }
 
+      // Debug: Log outgoing request headers
+      console.log("[API Client] Request:", config.method?.toUpperCase(), config.url);
+      console.log("[API Client] JWT present:", !!jwt);
+      console.log("[API Client] API Key present:", !!config.headers["x-api-key"]);
+
       return config;
     },
     (error) => Promise.reject(error)

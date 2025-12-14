@@ -21,17 +21,51 @@ import {
 // USDT on BNB Chain (Binance-Peg)
 const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955" as const;
 
-// EIP-712 Domain for Predict.fun (BNB Chain)
-const EIP712_DOMAIN = {
-  name: "Predict.fun",
-  version: "1",
-  chainId: 56, // BNB Chain mainnet
+// Contract addresses (from SDK Constants.ts)
+const CONTRACTS = {
+  mainnet: {
+    CTF_EXCHANGE: "0x8BC070BEdAB741406F4B1Eb65A72bee27894B689",
+    NEG_RISK_CTF_EXCHANGE: "0x365fb81bd4A24D6303cd2F19c349dE6894D8d58A",
+    YIELD_BEARING_CTF_EXCHANGE: "0x6bEb5a40C032AFc305961162d8204CDA16DECFa5",
+    YIELD_BEARING_NEG_RISK_CTF_EXCHANGE: "0x8A289d458f5a134bA40015085A8F50Ffb681B41d",
+  },
+  testnet: {
+    CTF_EXCHANGE: "0x2A6413639BD3d73a20ed8C95F634Ce198ABbd2d7",
+    YIELD_BEARING_CTF_EXCHANGE: "0x8a6B4Fa700A1e310b106E7a48bAFa29111f66e89",
+  },
 } as const;
 
-// EIP-712 Order Type
+// Get verifying contract based on market type
+const getVerifyingContract = (
+  chainId: number,
+  isNegRisk: boolean,
+  isYieldBearing: boolean
+): string => {
+  if (chainId === 56) {
+    // Mainnet
+    if (isYieldBearing && isNegRisk) return CONTRACTS.mainnet.YIELD_BEARING_NEG_RISK_CTF_EXCHANGE;
+    if (isYieldBearing) return CONTRACTS.mainnet.YIELD_BEARING_CTF_EXCHANGE;
+    if (isNegRisk) return CONTRACTS.mainnet.NEG_RISK_CTF_EXCHANGE;
+    return CONTRACTS.mainnet.CTF_EXCHANGE;
+  } else {
+    // Testnet
+    if (isYieldBearing) return CONTRACTS.testnet.YIELD_BEARING_CTF_EXCHANGE;
+    return CONTRACTS.testnet.CTF_EXCHANGE;
+  }
+};
+
+// EIP-712 Domain for Predict.fun CTF Exchange
+const getEIP712Domain = (chainId: number, isNegRisk: boolean, isYieldBearing: boolean) => ({
+  name: "predict.fun CTF Exchange",
+  version: "1",
+  chainId,
+  verifyingContract: getVerifyingContract(chainId, isNegRisk, isYieldBearing),
+} as const);
+
+// EIP-712 Order Type (from SDK ORDER_STRUCTURE)
 const ORDER_TYPES = {
   Order: [
-    { name: "salt", type: "bytes32" },
+    { name: "salt", type: "uint256" },  // NOT bytes32!
     { name: "maker", type: "address" },
     { name: "signer", type: "address" },
     { name: "taker", type: "address" },
@@ -51,7 +85,7 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ market }: OrderFormProps) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { data: usdtBalance } = useBalance({
     address,
     token: USDT_ADDRESS,
@@ -96,12 +130,18 @@ export function OrderForm({ market }: OrderFormProps) {
     setIsSubmitting(true);
 
     try {
+      // Debug: Check JWT status
+      const jwt = sessionStorage.getItem("predict-jwt");
+      console.log("[OrderForm] JWT exists:", !!jwt);
+      console.log("[OrderForm] isAuthenticated:", isAuthenticated);
+
       // Step 0: Get nonce from wallet
       let nonce = "0";
       if (publicClient && address) {
         const txCount = await publicClient.getTransactionCount({ address });
         nonce = txCount.toString();
       }
+      console.log("[OrderForm] Wallet nonce:", nonce);
 
       // Step 1: Build order struct
       const orderStruct = buildOrderStruct({
@@ -118,12 +158,21 @@ export function OrderForm({ market }: OrderFormProps) {
       const orderHash = computeOrderHash(orderStruct);
 
       // Step 3: Sign the order with EIP-712
+      // Determine market type for correct verifying contract
+      const isNegRisk = market.isNegRisk || false;
+      const isYieldBearing = market.isYieldBearing || false;
+      const domain = getEIP712Domain(chainId || 56, isNegRisk, isYieldBearing);
+
+      console.log("[OrderForm] EIP-712 Domain:", domain);
+      console.log("[OrderForm] Order struct:", orderStruct);
+
       const signature = await signTypedDataAsync({
-        domain: EIP712_DOMAIN,
+        domain,
         types: ORDER_TYPES,
         primaryType: "Order",
         message: {
-          salt: orderStruct.salt as `0x${string}`,
+          // Salt is uint256, pass as BigInt directly
+          salt: BigInt(orderStruct.salt),
           maker: orderStruct.maker as `0x${string}`,
           signer: orderStruct.signer as `0x${string}`,
           taker: orderStruct.taker as `0x${string}`,
@@ -152,6 +201,9 @@ export function OrderForm({ market }: OrderFormProps) {
         orderType,
         orderType === "MARKET" ? "100" : undefined // 1% slippage for market orders
       );
+
+      // Debug: Log order request
+      console.log("[OrderForm] Order request:", JSON.stringify(request, null, 2));
 
       await createOrder.mutateAsync(request);
 
