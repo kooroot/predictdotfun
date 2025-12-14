@@ -7,6 +7,7 @@ const MAX_ORDERS = 100; // Keep last 100 orders
 export interface StoredOrder {
   hash: string;
   marketId: number;
+  pricePerShare: string; // Price per share at order creation time
   createdAt: number;
 }
 
@@ -21,7 +22,12 @@ export const orderHistoryStorage = {
     }
   },
 
-  add: (hash: string, marketId: number): void => {
+  getByHash: (hash: string): StoredOrder | undefined => {
+    const orders = orderHistoryStorage.get();
+    return orders.find((o) => o.hash === hash);
+  },
+
+  add: (hash: string, marketId: number, pricePerShare: string): void => {
     if (typeof window === "undefined") return;
     try {
       const orders = orderHistoryStorage.get();
@@ -33,6 +39,7 @@ export const orderHistoryStorage = {
       orders.unshift({
         hash,
         marketId,
+        pricePerShare,
         createdAt: Date.now(),
       });
 

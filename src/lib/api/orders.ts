@@ -83,8 +83,8 @@ export const ordersApi = {
     );
 
     // Store hash in local history for tracking
-    if (response.data.data.code === "OK" && _meta?.marketId) {
-      orderHistoryStorage.add(hash, _meta.marketId);
+    if (response.data.data.code === "OK" && _meta?.marketId && _meta?.pricePerShare) {
+      orderHistoryStorage.add(hash, _meta.marketId, _meta.pricePerShare);
     }
 
     return { ...response.data.data, hash };
@@ -122,9 +122,16 @@ export const ordersApi = {
         batch.map((stored) => ordersApi.getOrderByHash(stored.hash))
       );
 
-      for (const result of results) {
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
         if (result.status === "fulfilled") {
-          orders.push(result.value);
+          const order = result.value;
+          // Add pricePerShare from local storage
+          const storedOrder = batch[j];
+          if (storedOrder?.pricePerShare) {
+            order.pricePerShare = storedOrder.pricePerShare;
+          }
+          orders.push(order);
         }
       }
     }

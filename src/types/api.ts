@@ -131,6 +131,7 @@ export interface Order {
   tokenId: string;
   makerAmount: string;
   takerAmount: string;
+  pricePerShare?: string; // From local storage (wei string)
 }
 
 // Signed order structure for API submission
@@ -163,6 +164,7 @@ export interface CreateOrderRequest {
   // Extra metadata for local tracking (not sent to API)
   _meta?: {
     marketId: number;
+    pricePerShare: string;
   };
 }
 

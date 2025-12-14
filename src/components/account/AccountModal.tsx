@@ -51,13 +51,20 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
   // Calculate USD value of filled amount for an order
   const getFilledUsdValue = (order: NonNullable<typeof orders>[number]) => {
     const amountFilled = parseFloat(order.amountFilled || "0");
+    if (amountFilled === 0) return 0;
+
+    // Use pricePerShare from localStorage if available (more accurate)
+    if (order.pricePerShare) {
+      const pricePerShare = parseFloat(order.pricePerShare) / 1e18;
+      const filledShares = amountFilled / 1e18;
+      return filledShares * pricePerShare;
+    }
+
+    // Fallback: calculate from makerAmount/takerAmount ratio
     const makerAmount = parseFloat(order.makerAmount || "0");
     const takerAmount = parseFloat(order.takerAmount || "0");
+    if (takerAmount === 0) return 0;
 
-    if (amountFilled === 0 || takerAmount === 0) return 0;
-
-    // BUY: makerAmount is USDT, takerAmount is shares
-    // SELL: makerAmount is shares, takerAmount is USDT
     if (order.side === 0) {
       return (amountFilled / takerAmount) * makerAmount / 1e18;
     } else {

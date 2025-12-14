@@ -408,6 +408,7 @@ export function OrderForm({ market }: OrderFormProps) {
         },
         _meta: {
           marketId: market.id,
+          pricePerShare: amounts.pricePerShare.toString(),
         },
       };
 
