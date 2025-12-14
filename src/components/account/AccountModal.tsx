@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAccount as useWagmiAccount, useBalance, useDisconnect } from "wagmi";
 import { useAccount } from "@/hooks/api/useAccount";
 import { useOrders } from "@/hooks/api/useOrders";
+import { usePositions } from "@/hooks/api/usePositions";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatNumber } from "@/lib/utils/format";
 
@@ -44,6 +45,7 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
   });
   const { data: accountData, isLoading: accountLoading } = useAccount();
   const { data: orders } = useOrders();
+  const { data: positions } = usePositions();
   const { isAuthenticated, logout } = useAuth();
   const { disconnect } = useDisconnect();
   const [copied, setCopied] = useState<"address" | null>(null);
@@ -77,6 +79,12 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
   const filledOrders = orders?.filter((o) => o.status === "FILLED").length || 0;
   const totalVolumeUsd = orders?.reduce((sum, order) => {
     return sum + getFilledUsdValue(order);
+  }, 0) || 0;
+
+  // Calculate active positions value
+  const activePositionsCount = positions?.length || 0;
+  const activePositionsValueUsd = positions?.reduce((sum, pos) => {
+    return sum + parseFloat(pos.valueUsd || "0");
   }, 0) || 0;
 
   const copyToClipboard = async (text: string) => {
@@ -169,7 +177,7 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
           {isAuthenticated && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">Trading Stats</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-lg bg-muted/50 border text-center">
                   <p className="text-lg font-bold">{totalOrders}</p>
                   <p className="text-xs text-muted-foreground">Orders</p>
@@ -181,6 +189,10 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
                 <div className="p-3 rounded-lg bg-muted/50 border text-center">
                   <p className="text-lg font-bold text-purple-500">${formatNumber(totalVolumeUsd, 2)}</p>
                   <p className="text-xs text-muted-foreground">Volume</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border text-center">
+                  <p className="text-lg font-bold text-blue-500">${formatNumber(activePositionsValueUsd, 2)}</p>
+                  <p className="text-xs text-muted-foreground">Positions</p>
                 </div>
               </div>
             </div>
