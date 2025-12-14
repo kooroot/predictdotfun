@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency, formatPercentage } from "@/lib/utils/format";
+import { formatNumber } from "@/lib/utils/format";
 import { Wallet } from "lucide-react";
 import { useAccount } from "wagmi";
 
@@ -57,11 +57,36 @@ export default function PositionsPage() {
     );
   }
 
+  // Calculate total volume
+  const totalVolume = positions?.reduce((sum, pos) => {
+    return sum + parseFloat(pos.valueUsd || "0");
+  }, 0) || 0;
+
+  const totalPositions = positions?.length || 0;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Positions</h1>
         <p className="text-muted-foreground">Your active market positions</p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{totalPositions}</div>
+            <p className="text-xs text-muted-foreground">Active Positions</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-green-500">
+              ${formatNumber(totalVolume, 2)}
+            </div>
+            <p className="text-xs text-muted-foreground">Total Value (USD)</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -84,10 +109,9 @@ export default function PositionsPage() {
                 <TableRow>
                   <TableHead>Market</TableHead>
                   <TableHead>Outcome</TableHead>
-                  <TableHead className="text-right">Size</TableHead>
-                  <TableHead className="text-right">Avg Price</TableHead>
-                  <TableHead className="text-right">Current</TableHead>
-                  <TableHead className="text-right">PnL</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Value (USD)</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -103,33 +127,33 @@ export default function PositionsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={position.outcome === "YES" ? "default" : "secondary"}
+                        variant={position.outcomeName === "Yes" ? "default" : "secondary"}
                         className={
-                          position.outcome === "YES"
+                          position.outcomeName === "Yes"
                             ? "bg-green-600"
                             : "bg-red-600"
                         }
                       >
-                        {position.outcome}
+                        {position.outcomeName}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{position.size}</TableCell>
                     <TableCell className="text-right">
-                      {formatPercentage(position.avgPrice)}
+                      {formatNumber(parseFloat(position.amount) / 1e18, 2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatPercentage(position.currentPrice)}
+                      ${formatNumber(parseFloat(position.valueUsd), 2)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <span
-                        className={
-                          parseFloat(position.pnl) >= 0
-                            ? "text-green-500"
-                            : "text-red-500"
-                        }
-                      >
-                        {formatCurrency(position.pnl)} ({position.pnlPercentage}%)
-                      </span>
+                    <TableCell>
+                      {position.outcomeStatus ? (
+                        <Badge
+                          variant={position.outcomeStatus === "WON" ? "default" : "destructive"}
+                          className={position.outcomeStatus === "WON" ? "bg-green-600" : ""}
+                        >
+                          {position.outcomeStatus}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">Active</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

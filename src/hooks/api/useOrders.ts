@@ -5,7 +5,7 @@ import { ordersApi, GetOrdersParams } from "@/lib/api/orders";
 import { useNetwork } from "@/providers/NetworkProvider";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
-import type { CreateOrderRequest } from "@/types/api";
+import type { CreateOrderRequest, Order } from "@/types/api";
 
 export function useOrders(params?: GetOrdersParams) {
   const { network } = useNetwork();
@@ -14,7 +14,24 @@ export function useOrders(params?: GetOrdersParams) {
 
   return useQuery({
     queryKey: ["orders", network, params],
-    queryFn: () => ordersApi.getOrders(params),
+    queryFn: async (): Promise<Order[]> => {
+      // Fetch orders from API
+      const apiOrders = await ordersApi.getOrders(params);
+
+      // If we got orders from API, use those
+      if (apiOrders.length > 0) {
+        return apiOrders;
+      }
+
+      // Otherwise, try to fetch from locally stored hashes
+      // This handles market orders that don't appear in the list endpoint
+      if (!params?.status || params.status === "all") {
+        const localOrders = await ordersApi.getOrdersByStoredHashes();
+        return localOrders;
+      }
+
+      return apiOrders;
+    },
     enabled: isConfigured && isAuthenticated,
     staleTime: 10 * 1000, // 10 seconds
     refetchInterval: 30 * 1000, // Refetch every 30 seconds

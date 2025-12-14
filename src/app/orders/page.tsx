@@ -26,12 +26,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateTime, formatPercentage } from "@/lib/utils/format";
+import { formatNumber } from "@/lib/utils/format";
 import { Wallet, Loader2, X } from "lucide-react";
 import { useAccount } from "wagmi";
 import type { OrderStatus } from "@/types/api";
 
-type FilterStatus = "open" | "filled" | "partial" | "cancelled" | "all";
+type FilterStatus = "OPEN" | "FILLED" | "EXPIRED" | "CANCELLED" | "all";
 
 export default function OrdersPage() {
   const { isConnected } = useAccount();
@@ -93,19 +93,44 @@ export default function OrdersPage() {
 
   const getStatusBadgeVariant = (status: OrderStatus) => {
     switch (status) {
-      case "open":
+      case "OPEN":
         return "default";
-      case "filled":
+      case "FILLED":
         return "secondary";
-      case "partial":
-        return "outline";
-      case "cancelled":
-      case "expired":
+      case "CANCELLED":
+      case "EXPIRED":
+      case "INVALIDATED":
         return "destructive";
       default:
         return "secondary";
     }
   };
+
+  const formatSide = (side: number) => (side === 0 ? "BUY" : "SELL");
+
+  const formatExpiration = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const formatAmount = (amountWei: string) => {
+    // Convert from wei (18 decimals) to readable number
+    const amount = parseFloat(amountWei) / 1e18;
+    return formatNumber(amount, 2);
+  };
+
+  // Calculate order statistics
+  const totalOrders = orders?.length || 0;
+  const filledOrders = orders?.filter((o) => o.status === "FILLED").length || 0;
+  const openOrders = orders?.filter((o) => o.status === "OPEN").length || 0;
+  const totalFilledVolume = orders?.reduce((sum, order) => {
+    // Sum up filled amounts (converted from wei)
+    return sum + parseFloat(order.amountFilled || "0") / 1e18;
+  }, 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -124,12 +149,42 @@ export default function OrdersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="filled">Filled</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="OPEN">Open</SelectItem>
+            <SelectItem value="FILLED">Filled</SelectItem>
+            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            <SelectItem value="EXPIRED">Expired</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{totalOrders}</div>
+            <p className="text-xs text-muted-foreground">Total Orders</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-blue-500">{openOrders}</div>
+            <p className="text-xs text-muted-foreground">Open Orders</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-green-500">{filledOrders}</div>
+            <p className="text-xs text-muted-foreground">Filled Orders</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-purple-500">
+              {formatNumber(totalFilledVolume, 2)}
+            </div>
+            <p className="text-xs text-muted-foreground">Total Filled Volume</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -150,15 +205,13 @@ export default function OrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Market</TableHead>
+                  <TableHead>Market ID</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Side</TableHead>
-                  <TableHead>Outcome</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Size</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Filled</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Expires</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -168,48 +221,39 @@ export default function OrdersPage() {
                     <TableCell>
                       <Link
                         href={`/markets/${order.marketId}`}
-                        className="hover:underline font-medium max-w-[200px] truncate block"
+                        className="hover:underline font-medium"
                       >
-                        {order.marketTitle}
+                        #{order.marketId}
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{order.type}</Badge>
+                      <Badge variant="outline">{order.strategy}</Badge>
                     </TableCell>
                     <TableCell>
                       <span
                         className={
-                          order.side === "BUY" ? "text-green-500" : "text-red-500"
+                          order.side === 0 ? "text-green-500" : "text-red-500"
                         }
                       >
-                        {order.side}
+                        {formatSide(order.side)}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={order.outcome === "YES" ? "default" : "secondary"}
-                        className={
-                          order.outcome === "YES" ? "bg-green-600" : "bg-red-600"
-                        }
-                      >
-                        {order.outcome}
-                      </Badge>
+                    <TableCell className="text-right">
+                      {formatAmount(order.amount)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatPercentage(order.price)}
+                      {formatAmount(order.amountFilled)}
                     </TableCell>
-                    <TableCell className="text-right">{order.size}</TableCell>
-                    <TableCell className="text-right">{order.filled}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(order.status)}>
                         {order.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {formatDateTime(order.createdAt)}
+                      {formatExpiration(order.expiration)}
                     </TableCell>
                     <TableCell>
-                      {order.status === "open" && (
+                      {order.status === "OPEN" && (
                         <Button
                           variant="ghost"
                           size="icon"

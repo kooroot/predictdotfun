@@ -26,6 +26,7 @@ export async function GET(
     });
 
     const text = await response.text();
+
     try {
       const data = JSON.parse(text);
       return NextResponse.json(data, { status: response.status });
@@ -63,6 +64,7 @@ export async function POST(
     });
 
     const text = await response.text();
+
     try {
       const data = JSON.parse(text);
       return NextResponse.json(data, { status: response.status });
@@ -113,29 +115,23 @@ function getBaseUrl(request: NextRequest): string {
   return API_URLS[network as keyof typeof API_URLS] || API_URLS.testnet;
 }
 
-function buildHeaders(request: NextRequest): HeadersInit {
-  const headers: HeadersInit = {
+function buildHeaders(request: NextRequest): Record<string, string> {
+  // Get all needed headers from request
+  const apiKey = request.headers.get("x-api-key");
+  const auth = request.headers.get("authorization");
+
+  // Build headers object explicitly
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  // Forward API key if present
-  const apiKey = request.headers.get("x-api-key");
   if (apiKey) {
     headers["x-api-key"] = apiKey;
   }
 
-  // Forward Authorization if present
-  const auth = request.headers.get("authorization");
   if (auth) {
     headers["Authorization"] = auth;
   }
-
-  // Debug: Log headers being forwarded
-  console.log("[Proxy] Forwarding headers:", {
-    hasApiKey: !!apiKey,
-    hasAuth: !!auth,
-    authPrefix: auth?.substring(0, 20) + "...",
-  });
 
   return headers;
 }

@@ -84,28 +84,57 @@ export interface Orderbook {
 // Order types
 export type OrderSide = "BUY" | "SELL";
 export type OrderType = "LIMIT" | "MARKET";
-export type OrderStatus = "open" | "filled" | "partial" | "cancelled" | "expired";
+export type OrderStatus = "OPEN" | "FILLED" | "EXPIRED" | "CANCELLED" | "INVALIDATED";
 export type OutcomeType = "YES" | "NO";
 
+// API response for GET /v1/orders
+export interface OrderResponse {
+  id: string;
+  marketId: number;
+  currency: string;
+  amount: string;
+  amountFilled: string;
+  isNegRisk: boolean;
+  isYieldBearing: boolean;
+  strategy: "LIMIT" | "MARKET";
+  status: OrderStatus;
+  rewardEarningRate: number;
+  order: {
+    hash: string;
+    salt: string;
+    maker: string;
+    signer: string;
+    taker: string;
+    tokenId: string;
+    makerAmount: string;
+    takerAmount: string;
+    expiration: number;
+    nonce: string;
+    feeRateBps: string;
+    side: number; // 0 = BUY, 1 = SELL
+    signatureType: number;
+    signature: string;
+  };
+}
+
+// Simplified order for UI display
 export interface Order {
   id: string;
   hash: string;
-  marketId: string;
-  marketTitle: string;
-  side: OrderSide;
-  type: OrderType;
-  outcome: OutcomeType;
-  price: string;
-  size: string;
-  filled: string;
-  remaining: string;
+  marketId: number;
+  side: number; // 0 = BUY, 1 = SELL
+  strategy: "LIMIT" | "MARKET";
+  amount: string;
+  amountFilled: string;
   status: OrderStatus;
-  createdAt: string;
-  updatedAt: string;
+  expiration: number;
+  tokenId: string;
+  makerAmount: string;
+  takerAmount: string;
 }
 
 // Signed order structure for API submission
-// Note: API expects expiration, nonce, feeRateBps as numbers, not strings
+// Note: SDK uses BigIntString (string) for all numeric values
 export interface SignedOrder {
   hash: string;
   salt: string;
@@ -115,11 +144,11 @@ export interface SignedOrder {
   tokenId: string;
   makerAmount: string;
   takerAmount: string;
-  expiration: number;  // Unix timestamp in seconds (must be in the future)
-  nonce: number;
-  feeRateBps: number;
-  side: number; // 0 = BUY, 1 = SELL
-  signatureType: number;
+  expiration: string;  // Unix timestamp in seconds as STRING (per SDK)
+  nonce: string;       // Order nonce as STRING
+  feeRateBps: string;  // Fee rate in basis points as STRING
+  side: number;        // 0 = BUY, 1 = SELL (number)
+  signatureType: number; // 0 = EOA (number)
   signature: string;
 }
 
@@ -130,6 +159,10 @@ export interface CreateOrderRequest {
     strategy: "LIMIT" | "MARKET";
     slippageBps?: string;
     order: SignedOrder;
+  };
+  // Extra metadata for local tracking (not sent to API)
+  _meta?: {
+    marketId: number;
   };
 }
 
@@ -151,18 +184,34 @@ export interface RemoveOrdersRequest {
   };
 }
 
-// Position types
+// API response for GET /v1/positions
+export interface PositionResponse {
+  id: string;
+  market: {
+    id: number;
+    title: string;
+    question: string;
+    status: string;
+  };
+  outcome: {
+    name: string;
+    indexSet: number;
+    onChainId: string;
+    status: "WON" | "LOST" | null;
+  };
+  amount: string;
+  valueUsd: string;
+}
+
+// Simplified position for UI display
 export interface Position {
   id: string;
-  marketId: string;
+  marketId: number;
   marketTitle: string;
-  outcome: OutcomeType;
-  size: string;
-  avgPrice: string;
-  currentPrice: string;
-  pnl: string;
-  pnlPercentage: string;
-  createdAt: string;
+  outcomeName: string;
+  outcomeStatus: "WON" | "LOST" | null;
+  amount: string;
+  valueUsd: string;
 }
 
 // Account types
