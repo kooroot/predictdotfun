@@ -48,11 +48,28 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
   const { disconnect } = useDisconnect();
   const [copied, setCopied] = useState<"address" | null>(null);
 
+  // Calculate USD value of filled amount for an order
+  const getFilledUsdValue = (order: NonNullable<typeof orders>[number]) => {
+    const amountFilled = parseFloat(order.amountFilled || "0");
+    const makerAmount = parseFloat(order.makerAmount || "0");
+    const takerAmount = parseFloat(order.takerAmount || "0");
+
+    if (amountFilled === 0 || takerAmount === 0) return 0;
+
+    // BUY: makerAmount is USDT, takerAmount is shares
+    // SELL: makerAmount is shares, takerAmount is USDT
+    if (order.side === 0) {
+      return (amountFilled / takerAmount) * makerAmount / 1e18;
+    } else {
+      return (amountFilled / makerAmount) * takerAmount / 1e18;
+    }
+  };
+
   // Calculate trading stats
   const totalOrders = orders?.length || 0;
   const filledOrders = orders?.filter((o) => o.status === "FILLED").length || 0;
-  const totalVolume = orders?.reduce((sum, order) => {
-    return sum + parseFloat(order.amountFilled || "0") / 1e18;
+  const totalVolumeUsd = orders?.reduce((sum, order) => {
+    return sum + getFilledUsdValue(order);
   }, 0) || 0;
 
   const copyToClipboard = async (text: string) => {
@@ -155,7 +172,7 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
                   <p className="text-xs text-muted-foreground">Filled</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 border text-center">
-                  <p className="text-lg font-bold text-purple-500">{formatNumber(totalVolume, 2)}</p>
+                  <p className="text-lg font-bold text-purple-500">${formatNumber(totalVolumeUsd, 2)}</p>
                   <p className="text-xs text-muted-foreground">Volume</p>
                 </div>
               </div>

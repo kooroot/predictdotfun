@@ -123,13 +123,31 @@ export default function OrdersPage() {
     return formatNumber(amount, 2);
   };
 
+  // Calculate USD value of filled amount for an order
+  const getFilledUsdValue = (order: typeof orders extends (infer T)[] | undefined ? T : never) => {
+    const amountFilled = parseFloat(order.amountFilled || "0");
+    const makerAmount = parseFloat(order.makerAmount || "0");
+    const takerAmount = parseFloat(order.takerAmount || "0");
+
+    if (amountFilled === 0 || takerAmount === 0) return 0;
+
+    // BUY: makerAmount is USDT, takerAmount is shares
+    // SELL: makerAmount is shares, takerAmount is USDT
+    if (order.side === 0) {
+      // BUY: USD = (amountFilled / takerAmount) * makerAmount
+      return (amountFilled / takerAmount) * makerAmount / 1e18;
+    } else {
+      // SELL: USD = (amountFilled / makerAmount) * takerAmount
+      return (amountFilled / makerAmount) * takerAmount / 1e18;
+    }
+  };
+
   // Calculate order statistics
   const totalOrders = orders?.length || 0;
   const filledOrders = orders?.filter((o) => o.status === "FILLED").length || 0;
   const openOrders = orders?.filter((o) => o.status === "OPEN").length || 0;
-  const totalFilledVolume = orders?.reduce((sum, order) => {
-    // Sum up filled amounts (converted from wei)
-    return sum + parseFloat(order.amountFilled || "0") / 1e18;
+  const totalFilledVolumeUsd = orders?.reduce((sum, order) => {
+    return sum + getFilledUsdValue(order);
   }, 0) || 0;
 
   return (
@@ -180,9 +198,9 @@ export default function OrdersPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-purple-500">
-              {formatNumber(totalFilledVolume, 2)}
+              ${formatNumber(totalFilledVolumeUsd, 2)}
             </div>
-            <p className="text-xs text-muted-foreground">Total Filled Volume</p>
+            <p className="text-xs text-muted-foreground">Total Filled (USD)</p>
           </CardContent>
         </Card>
       </div>
