@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useCreateOrder } from "@/hooks/api/useOrders";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import type { Market, OrderSide, OrderType, OutcomeType } from "@/types/api";
 
 interface OrderFormProps {
@@ -18,7 +18,8 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ market }: OrderFormProps) {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { data: balance } = useBalance({ address });
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
   const createOrder = useCreateOrder();
@@ -90,7 +91,15 @@ export function OrderForm({ market }: OrderFormProps) {
   return (
     <Card>
       <CardHeader className="py-3">
-        <CardTitle className="text-sm">Place Order</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">Place Order</CardTitle>
+          {isConnected && balance && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Wallet className="h-3.5 w-3.5" />
+              <span>{parseFloat(balance.formatted).toFixed(4)} {balance.symbol}</span>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
