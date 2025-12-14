@@ -37,11 +37,11 @@ export const marketsApi = {
   },
 
   getMarketById: async (marketId: string): Promise<Market | null> => {
-    // API uses query parameter, not path parameter
-    const response = await apiClient.get<MarketsResponse>(MARKET_ENDPOINTS.getMarkets, {
-      params: { id: marketId },
-    });
-    return response.data.data[0] || null;
+    // API uses path parameter /v1/markets/{id}
+    const response = await apiClient.get<ApiResponse<Market>>(
+      MARKET_ENDPOINTS.getMarketById(marketId)
+    );
+    return response.data.data || null;
   },
 
   getMarketStats: async (marketId: string): Promise<MarketStats> => {
