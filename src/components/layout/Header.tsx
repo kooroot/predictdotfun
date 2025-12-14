@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { NetworkSwitcher } from "./NetworkSwitcher";
+import { AccountModal } from "@/components/account/AccountModal";
 import { useAuth } from "@/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 export function Header() {
   const { isAuthenticated, isAuthenticating, authenticate } = useAuth();
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -54,7 +57,6 @@ export function Header() {
             {({
               account,
               chain,
-              openAccountModal,
               openChainModal,
               openConnectModal,
               mounted,
@@ -116,7 +118,7 @@ export function Header() {
                         >
                           {chain.name}
                         </Button>
-                        <Button onClick={openAccountModal}>
+                        <Button onClick={() => setAccountModalOpen(true)}>
                           {account.displayName}
                         </Button>
                       </div>
@@ -128,6 +130,11 @@ export function Header() {
           </ConnectButton.Custom>
         </div>
       </div>
+
+      <AccountModal
+        open={accountModalOpen}
+        onOpenChange={setAccountModalOpen}
+      />
     </header>
   );
 }
