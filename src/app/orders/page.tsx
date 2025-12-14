@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useOrders, useRemoveOrder } from "@/hooks/api/useOrders";
+import { useMarkets } from "@/hooks/api/useMarkets";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
 import { ApiKeyRequired } from "@/components/layout/ApiKeyRequired";
@@ -43,7 +44,14 @@ export default function OrdersPage() {
   const { data: orders, isLoading } = useOrders({
     status: statusFilter === "all" ? undefined : statusFilter,
   });
+  const { data: markets } = useMarkets();
   const removeOrder = useRemoveOrder();
+
+  // Create market lookup map for titles
+  const marketTitleMap = useMemo(() => {
+    if (!markets) return new Map<number, string>();
+    return new Map(markets.map((m) => [m.id, m.title]));
+  }, [markets]);
 
   const handleRemoveOrder = async (orderId: string) => {
     try {
@@ -230,7 +238,7 @@ export default function OrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Market ID</TableHead>
+                  <TableHead>Market</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Side</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
@@ -246,9 +254,9 @@ export default function OrdersPage() {
                     <TableCell>
                       <Link
                         href={`/markets/${order.marketId}`}
-                        className="hover:underline font-medium"
+                        className="hover:underline font-medium max-w-[200px] truncate block"
                       >
-                        #{order.marketId}
+                        {marketTitleMap.get(order.marketId) || `#${order.marketId}`}
                       </Link>
                     </TableCell>
                     <TableCell>
