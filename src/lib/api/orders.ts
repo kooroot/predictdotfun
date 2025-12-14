@@ -15,12 +15,11 @@ function deriveOrderStatus(response: OrderResponse): OrderResponse["status"] {
   const amount = BigInt(response.amount);
   const amountFilled = BigInt(response.amountFilled);
 
-  // If fully filled, mark as FILLED regardless of API status
-  if (amountFilled >= amount && amount > BigInt(0)) {
+  // If amount is 0 (no remaining), order is fully filled
+  if (amount === BigInt(0) && amountFilled > BigInt(0)) {
     return "FILLED";
   }
 
-  // If partially filled but API says OPEN, keep as OPEN
   // Otherwise use API status
   return response.status;
 }
