@@ -10,6 +10,21 @@ export interface GetOrdersParams {
   offset?: number;
 }
 
+// Derive actual status from amounts (API may not reflect filled status correctly)
+function deriveOrderStatus(response: OrderResponse): OrderResponse["status"] {
+  const amount = BigInt(response.amount);
+  const amountFilled = BigInt(response.amountFilled);
+
+  // If fully filled, mark as FILLED regardless of API status
+  if (amountFilled >= amount && amount > BigInt(0)) {
+    return "FILLED";
+  }
+
+  // If partially filled but API says OPEN, keep as OPEN
+  // Otherwise use API status
+  return response.status;
+}
+
 // Map API response to simplified Order type
 function mapOrderResponse(response: OrderResponse): Order {
   return {
@@ -20,7 +35,7 @@ function mapOrderResponse(response: OrderResponse): Order {
     strategy: response.strategy,
     amount: response.amount,
     amountFilled: response.amountFilled,
-    status: response.status,
+    status: deriveOrderStatus(response),
     expiration: response.order.expiration,
     tokenId: response.order.tokenId,
     makerAmount: response.order.makerAmount,
