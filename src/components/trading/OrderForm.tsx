@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useBalance, useSignTypedData } from "wagmi";
+import { useAccount, useBalance, useSignTypedData, usePublicClient } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ export function OrderForm({ market }: OrderFormProps) {
     address,
     token: USDT_ADDRESS,
   });
+  const publicClient = usePublicClient();
   const { signTypedDataAsync } = useSignTypedData();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
@@ -95,6 +96,13 @@ export function OrderForm({ market }: OrderFormProps) {
     setIsSubmitting(true);
 
     try {
+      // Step 0: Get nonce from wallet
+      let nonce = "0";
+      if (publicClient && address) {
+        const txCount = await publicClient.getTransactionCount({ address });
+        nonce = txCount.toString();
+      }
+
       // Step 1: Build order struct
       const orderStruct = buildOrderStruct({
         market,
@@ -103,6 +111,7 @@ export function OrderForm({ market }: OrderFormProps) {
         outcome,
         price: orderType === "LIMIT" ? price : "0.5", // Default price for market orders
         size,
+        nonce,
       });
 
       // Step 2: Compute order hash

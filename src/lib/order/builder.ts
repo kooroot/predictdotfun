@@ -23,6 +23,7 @@ export interface BuildOrderParams {
   outcome: "YES" | "NO";
   price: string; // price per share (0-1)
   size: string; // number of shares
+  nonce?: string; // wallet transaction nonce
   expirationMinutes?: number; // default 60 minutes
 }
 
@@ -110,7 +111,7 @@ export function buildOrderStruct(params: BuildOrderParams): Omit<SignedOrder, "h
     makerAmount,
     takerAmount,
     expiration,
-    nonce: "0", // Will be fetched from contract/API
+    nonce: params.nonce || "0",
     feeRateBps: params.market.feeRateBps.toString(),
     side: ORDER_SIDE[params.side],
     signatureType: SIGNATURE_TYPE.EIP712,
