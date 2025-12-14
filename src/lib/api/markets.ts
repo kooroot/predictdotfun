@@ -52,10 +52,30 @@ export const marketsApi = {
   },
 
   getOrderbook: async (marketId: string): Promise<Orderbook> => {
-    const response = await apiClient.get<ApiResponse<Orderbook>>(
+    const response = await apiClient.get<ApiResponse<{
+      marketId: number;
+      updateTimestampMs: number;
+      asks: [number, number][];
+      bids: [number, number][];
+    }>>(
       MARKET_ENDPOINTS.getOrderbook(marketId)
     );
-    return response.data.data;
+
+    const rawData = response.data.data;
+
+    // Transform array format [price, size] to object format {price, size}
+    return {
+      marketId: rawData.marketId,
+      updateTimestampMs: rawData.updateTimestampMs,
+      asks: rawData.asks.map(([price, size]) => ({
+        price: price.toString(),
+        size: size.toString(),
+      })),
+      bids: rawData.bids.map(([price, size]) => ({
+        price: price.toString(),
+        size: size.toString(),
+      })),
+    };
   },
 
   getCategories: async (): Promise<Category[]> => {
