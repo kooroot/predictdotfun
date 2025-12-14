@@ -63,10 +63,9 @@ export interface Category {
 
 // Market Stats types
 export interface MarketStats {
-  volume24h: number;
-  volumeTotal: number;
-  trades24h: number;
-  uniqueTraders: number;
+  totalLiquidityUsd: number;
+  volumeTotalUsd: number;
+  volume24hUsd: number;
 }
 
 // Orderbook types

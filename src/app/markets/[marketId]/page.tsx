@@ -135,22 +135,18 @@ export default function MarketDetailPage() {
                 <CardTitle className="text-sm">Statistics</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">24h Volume</p>
-                    <p className="font-medium">{formatCurrency(stats.volume24h)}</p>
+                    <p className="font-medium">{formatCurrency(stats.volume24hUsd)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Total Volume</p>
-                    <p className="font-medium">{formatCurrency(stats.volumeTotal)}</p>
+                    <p className="font-medium">{formatCurrency(stats.volumeTotalUsd)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">24h Trades</p>
-                    <p className="font-medium">{stats.trades24h}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Unique Traders</p>
-                    <p className="font-medium">{stats.uniqueTraders}</p>
+                    <p className="text-xs text-muted-foreground">Liquidity</p>
+                    <p className="font-medium">{formatCurrency(stats.totalLiquidityUsd)}</p>
                   </div>
                 </div>
               </CardContent>
