@@ -288,7 +288,13 @@ export default function PositionsPage() {
         </CardHeader>
         <CardContent>
           {isLoadingHistory ? (
-            <PositionsTableSkeleton />
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="text-center">
+                <p className="text-sm font-medium">Loading redemption history...</p>
+                <p className="text-xs text-muted-foreground">Fetching on-chain data from BSC</p>
+              </div>
+            </div>
           ) : !redemptionHistory || redemptionHistory.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No redemption history found</p>
