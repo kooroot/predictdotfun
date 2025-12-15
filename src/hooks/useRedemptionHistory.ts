@@ -68,68 +68,93 @@ export function useRedemptionHistory() {
         : NEG_RISK_ADAPTER_ADDRESSES.testnet;
 
       try {
-        // Look back ~90 days worth of blocks (assuming ~3s block time)
+        // RPC limits: 10,000 blocks per query
+        // Query last 30 days in chunks of 10,000 blocks
         const currentBlock = await publicClient.getBlockNumber();
-        const blocksPerDay = BigInt(24 * 60 * 20); // ~3s per block
-        const lookbackBlocks = blocksPerDay * BigInt(90);
-        const fromBlock = currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : BigInt(0);
+        const CHUNK_SIZE = BigInt(9999); // Stay under 10,000 limit
+        const blocksPerDay = BigInt(28800); // ~3s per block
+        const lookbackBlocks = blocksPerDay * BigInt(30); // 30 days
+        const startBlock = currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : BigInt(0);
 
-        // Query ConditionalTokens contracts
-        const ctfLogsPromises = ctfAddresses.map((contractAddr) =>
-          publicClient.getLogs({
-            address: contractAddr,
-            event: CTF_PAYOUT_REDEMPTION_EVENT,
-            args: {
-              redeemer: address,
-            },
-            fromBlock: fromBlock,
-            toBlock: "latest",
-          }).then((logs) =>
-            logs.map((log) => ({
-              transactionHash: log.transactionHash,
-              blockNumber: log.blockNumber,
-              conditionId: log.args.conditionId || "",
-              payout: log.args.payout?.toString() || "0",
-              payoutFormatted: formatEther(log.args.payout || BigInt(0)),
-              contractAddress: contractAddr,
-              source: "ctf" as const,
-            }))
-          ).catch((err) => {
-            console.error(`Failed to fetch CTF logs from ${contractAddr}:`, err);
-            return [];
-          })
-        );
+        console.log(`Querying redemption events from block ${startBlock} to ${currentBlock}`);
 
-        // Query NegRiskAdapter contracts (different event structure)
-        const adapterLogsPromises = adapterAddresses.map((contractAddr) =>
-          publicClient.getLogs({
-            address: contractAddr,
-            event: ADAPTER_PAYOUT_REDEMPTION_EVENT,
-            args: {
-              redeemer: address,
-            },
-            fromBlock: fromBlock,
-            toBlock: "latest",
-          }).then((logs) =>
-            logs.map((log) => ({
-              transactionHash: log.transactionHash,
-              blockNumber: log.blockNumber,
-              conditionId: log.args.conditionId || "",
-              payout: log.args.payout?.toString() || "0",
-              payoutFormatted: formatEther(log.args.payout || BigInt(0)),
-              contractAddress: contractAddr,
-              source: "adapter" as const,
-            }))
-          ).catch((err) => {
-            console.error(`Failed to fetch Adapter logs from ${contractAddr}:`, err);
-            return [];
-          })
-        );
+        // Query ConditionalTokens contracts in chunks
+        const ctfLogsPromises = ctfAddresses.map(async (contractAddr) => {
+          const allLogs: RedemptionEvent[] = [];
+          let fromBlock = startBlock;
+
+          while (fromBlock < currentBlock) {
+            const toBlock = fromBlock + CHUNK_SIZE > currentBlock ? currentBlock : fromBlock + CHUNK_SIZE;
+            try {
+              const logs = await publicClient.getLogs({
+                address: contractAddr,
+                event: CTF_PAYOUT_REDEMPTION_EVENT,
+                args: { redeemer: address },
+                fromBlock,
+                toBlock,
+              });
+              for (const log of logs) {
+                allLogs.push({
+                  transactionHash: log.transactionHash,
+                  blockNumber: log.blockNumber,
+                  conditionId: log.args.conditionId || "",
+                  payout: log.args.payout?.toString() || "0",
+                  payoutFormatted: formatEther(log.args.payout || BigInt(0)),
+                  contractAddress: contractAddr,
+                  source: "ctf",
+                });
+              }
+            } catch (err) {
+              console.error(`Failed to fetch CTF logs from ${contractAddr} (${fromBlock}-${toBlock}):`, err);
+            }
+            fromBlock = toBlock + BigInt(1);
+          }
+          return allLogs;
+        });
+
+        // Query NegRiskAdapter contracts in chunks
+        const adapterLogsPromises = adapterAddresses.map(async (contractAddr) => {
+          console.log(`Querying Adapter ${contractAddr} for redeemer ${address}`);
+          const allLogs: RedemptionEvent[] = [];
+          let fromBlock = startBlock;
+
+          while (fromBlock < currentBlock) {
+            const toBlock = fromBlock + CHUNK_SIZE > currentBlock ? currentBlock : fromBlock + CHUNK_SIZE;
+            try {
+              const logs = await publicClient.getLogs({
+                address: contractAddr,
+                event: ADAPTER_PAYOUT_REDEMPTION_EVENT,
+                args: { redeemer: address },
+                fromBlock,
+                toBlock,
+              });
+              for (const log of logs) {
+                allLogs.push({
+                  transactionHash: log.transactionHash,
+                  blockNumber: log.blockNumber,
+                  conditionId: log.args.conditionId || "",
+                  payout: log.args.payout?.toString() || "0",
+                  payoutFormatted: formatEther(log.args.payout || BigInt(0)),
+                  contractAddress: contractAddr,
+                  source: "adapter",
+                });
+              }
+            } catch (err) {
+              console.error(`Failed to fetch Adapter logs from ${contractAddr} (${fromBlock}-${toBlock}):`, err);
+            }
+            fromBlock = toBlock + BigInt(1);
+          }
+          console.log(`Adapter ${contractAddr}: found ${allLogs.length} logs`);
+          return allLogs;
+        });
 
         const [ctfLogs, adapterLogs] = await Promise.all([
           Promise.all(ctfLogsPromises),
           Promise.all(adapterLogsPromises),
         ]);
+
+        console.log(`Found ${ctfLogs.flat().length} CTF redemption events`);
+        console.log(`Found ${adapterLogs.flat().length} Adapter redemption events`);
 
         const allEvents: RedemptionEvent[] = [
           ...ctfLogs.flat(),
