@@ -414,6 +414,33 @@ export function OrderForm({ market }: OrderFormProps) {
 
       await createOrder.mutateAsync(request);
 
+      // Save entry price to localStorage for position tracking (only for BUY orders)
+      if (side === "BUY") {
+        const tokenId = getTokenId(market, outcome);
+        const entryKey = `entryPrices_${market.id}_${tokenId}`;
+        const priceNum = parseFloat(amounts.pricePerShare.toString()) / 1e18;
+        const sizeNum = parseFloat(size);
+
+        try {
+          const stored = localStorage.getItem(entryKey);
+          const existing = stored ? JSON.parse(stored) : { totalCost: 0, totalShares: 0 };
+
+          // Calculate weighted average
+          const newTotalCost = existing.totalCost + (priceNum * sizeNum);
+          const newTotalShares = existing.totalShares + sizeNum;
+          const avgPrice = newTotalShares > 0 ? newTotalCost / newTotalShares : 0;
+
+          localStorage.setItem(entryKey, JSON.stringify({
+            totalCost: newTotalCost,
+            totalShares: newTotalShares,
+            avgPrice,
+            lastUpdated: Date.now(),
+          }));
+        } catch (e) {
+          console.error("Failed to save entry price:", e);
+        }
+      }
+
       toast({
         title: "Order created",
         description: `${side} ${size} ${outcome} @ ${orderType === "LIMIT" ? price : "market price"}`,

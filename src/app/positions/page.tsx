@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePositions } from "@/hooks/api/usePositions";
+import { useMarkets } from "@/hooks/api/useMarkets";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRedeemPosition } from "@/hooks/useRedeemPosition";
@@ -25,14 +27,45 @@ import { Wallet, Loader2, Gift, ExternalLink, History } from "lucide-react";
 import { useAccount } from "wagmi";
 import type { Position } from "@/types/api";
 
+// Helper to get entry price from localStorage
+function getEntryPrice(marketId: number, tokenId: string): { avgPrice: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(`entryPrices_${marketId}_${tokenId}`);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error("Failed to get entry price:", e);
+  }
+  return null;
+}
+
 export default function PositionsPage() {
   const { isConnected } = useAccount();
   const { isConfigured, isRequired } = useApiKey();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { data: positions, isLoading, refetch } = usePositions();
+  const { data: markets } = useMarkets();
   const { redeemPosition, isRedeeming, redeemingPositionId } = useRedeemPosition();
   const { data: redemptionHistory, isLoading: isLoadingHistory } = useRedemptionHistory();
   const { toast } = useToast();
+
+  // Create lookup for tokenId by market and outcome
+  const getTokenId = useMemo(() => {
+    if (!markets) return (_marketId: number, _outcomeName: string) => null;
+
+    const tokenMap = new Map<string, string>();
+    for (const market of markets) {
+      for (const outcome of market.outcomes || []) {
+        tokenMap.set(`${market.id}-${outcome.name}`, outcome.onChainId);
+      }
+    }
+
+    return (marketId: number, outcomeName: string) => {
+      return tokenMap.get(`${marketId}-${outcomeName}`) || null;
+    };
+  }, [markets]);
 
   const handleRedeem = async (position: Position) => {
     const result = await redeemPosition(position);
@@ -157,40 +190,64 @@ export default function PositionsPage() {
                   <TableHead>Market</TableHead>
                   <TableHead>Outcome</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Avg Entry</TableHead>
                   <TableHead className="text-right">Value (USD)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activePositions.map((position) => (
-                  <TableRow key={position.id}>
-                    <TableCell>
-                      <Link
-                        href={`/markets/${position.marketId}`}
-                        className="hover:underline font-medium"
-                      >
-                        {position.marketTitle}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={position.outcomeName === "Yes" ? "default" : "secondary"}
-                        className={
-                          position.outcomeName === "Yes"
-                            ? "bg-green-600"
-                            : "bg-red-600"
-                        }
-                      >
-                        {position.outcomeName}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatNumber(parseFloat(position.amount) / 1e18, 2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${formatNumber(parseFloat(position.valueUsd), 2)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {activePositions.map((position) => {
+                  const tokenId = getTokenId(position.marketId, position.outcomeName);
+                  const entryData = tokenId ? getEntryPrice(position.marketId, tokenId) : null;
+                  const shares = parseFloat(position.amount) / 1e18;
+                  const currentValue = parseFloat(position.valueUsd);
+                  const currentPrice = shares > 0 ? currentValue / shares : 0;
+                  const pnl = entryData?.avgPrice ? (currentPrice - entryData.avgPrice) * shares : null;
+
+                  return (
+                    <TableRow key={position.id}>
+                      <TableCell>
+                        <Link
+                          href={`/markets/${position.marketId}`}
+                          className="hover:underline font-medium"
+                        >
+                          {position.marketTitle}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={position.outcomeName === "Yes" ? "default" : "secondary"}
+                          className={
+                            position.outcomeName === "Yes"
+                              ? "bg-green-600"
+                              : "bg-red-600"
+                          }
+                        >
+                          {position.outcomeName}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(shares, 2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {entryData?.avgPrice ? (
+                          <div>
+                            <span className="font-mono">${formatNumber(entryData.avgPrice, 4)}</span>
+                            {pnl !== null && (
+                              <span className={`text-xs ml-1 ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                ({pnl >= 0 ? "+" : ""}{formatNumber(pnl, 2)})
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${formatNumber(currentValue, 2)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
