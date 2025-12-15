@@ -179,19 +179,19 @@ export default function PositionsPage() {
                         <span className="text-muted-foreground">Active</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-[100px]">
                       {position.outcomeStatus === "WON" && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleRedeem(position)}
                           disabled={isRedeeming && redeemingPositionId === position.id}
-                          className="text-green-500 border-green-500 hover:bg-green-500/10"
+                          className="text-green-500 border-green-500 hover:bg-green-500/10 h-8 px-3"
                         >
                           {isRedeeming && redeemingPositionId === position.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
                           ) : (
-                            <Gift className="h-4 w-4 mr-1" />
+                            <Gift className="h-3 w-3 mr-1" />
                           )}
                           Redeem
                         </Button>

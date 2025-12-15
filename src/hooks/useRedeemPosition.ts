@@ -78,6 +78,13 @@ export function useRedeemPosition() {
           redeemParams.amount = BigInt(position.amount);
         }
 
+        // Debug log
+        console.log("Redeem params:", {
+          ...redeemParams,
+          amount: redeemParams.amount?.toString(),
+          positionAmount: position.amount,
+        });
+
         // Call SDK redeem
         const result = await orderBuilder.redeemPositions(redeemParams);
 
