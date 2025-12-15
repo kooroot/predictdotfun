@@ -148,6 +148,29 @@ export default function OrdersPage() {
     return formatNumber(amount, 2);
   };
 
+  // Calculate price per share from order data
+  const getOrderPrice = (order: typeof orders extends (infer T)[] | undefined ? T : never): string => {
+    // Use stored pricePerShare if available (most accurate)
+    if (order.pricePerShare) {
+      const price = parseFloat(order.pricePerShare) / 1e18;
+      return formatNumber(price, 4);
+    }
+
+    // Fallback: calculate from makerAmount/takerAmount
+    const makerAmount = parseFloat(order.makerAmount || "0");
+    const takerAmount = parseFloat(order.takerAmount || "0");
+
+    if (makerAmount === 0 || takerAmount === 0) return "-";
+
+    // BUY: makerAmount is USDT, takerAmount is shares → price = maker/taker
+    // SELL: makerAmount is shares, takerAmount is USDT → price = taker/maker
+    const price = order.side === 0
+      ? makerAmount / takerAmount
+      : takerAmount / makerAmount;
+
+    return formatNumber(price, 4);
+  };
+
   // Calculate USD value of filled amount for an order
   const getFilledUsdValue = (order: typeof orders extends (infer T)[] | undefined ? T : never) => {
     const amountFilled = parseFloat(order.amountFilled || "0");
@@ -259,6 +282,7 @@ export default function OrdersPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Outcome</TableHead>
                   <TableHead>Side</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Filled</TableHead>
                   <TableHead>Status</TableHead>
@@ -302,6 +326,9 @@ export default function OrdersPage() {
                       >
                         {formatSide(order.side)}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      ${getOrderPrice(order)}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatAmount(order.amount)}
