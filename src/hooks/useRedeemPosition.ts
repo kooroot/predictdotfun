@@ -53,14 +53,23 @@ export function useRedeemPosition() {
         // @ts-expect-error - SDK expects BaseWallet but JsonRpcSigner works at runtime
         const orderBuilder = await OrderBuilder.make(sdkChainId, signer);
 
-        // Set approvals before redeeming (required for NegRisk markets)
-        console.log("Setting approvals...");
-        const approvalResult = await orderBuilder.setApprovals();
-        if (!approvalResult.success) {
-          console.error("Approval failed:", approvalResult);
-          return { success: false, error: "Failed to set approvals" };
+        // Set only the required approval based on market type
+        if (position.isNegRisk) {
+          console.log("Setting NegRiskAdapter approval...");
+          const approvalResult = await orderBuilder.setNegRiskAdapterApproval(position.isYieldBearing);
+          if (!approvalResult.success) {
+            console.error("NegRiskAdapter approval failed:", approvalResult);
+            return { success: false, error: "Failed to set NegRiskAdapter approval" };
+          }
+        } else {
+          console.log("Setting CTF Exchange approval...");
+          const approvalResult = await orderBuilder.setCtfExchangeApproval(false, position.isYieldBearing);
+          if (!approvalResult.success) {
+            console.error("CTF Exchange approval failed:", approvalResult);
+            return { success: false, error: "Failed to set CTF Exchange approval" };
+          }
         }
-        console.log("Approvals set successfully");
+        console.log("Approval set successfully");
 
         // Validate indexSet is 1 or 2
         const indexSet = position.outcomeIndexSet as 1 | 2;
