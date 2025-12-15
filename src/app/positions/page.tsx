@@ -5,6 +5,7 @@ import { usePositions } from "@/hooks/api/usePositions";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRedeemPosition } from "@/hooks/useRedeemPosition";
+import { useRedemptionHistory } from "@/hooks/useRedemptionHistory";
 import { useToast } from "@/hooks/use-toast";
 import { ApiKeyRequired } from "@/components/layout/ApiKeyRequired";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
-import { Wallet, Loader2, Gift } from "lucide-react";
+import { Wallet, Loader2, Gift, ExternalLink, History } from "lucide-react";
 import { useAccount } from "wagmi";
 import type { Position } from "@/types/api";
 
@@ -30,6 +31,7 @@ export default function PositionsPage() {
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { data: positions, isLoading, refetch } = usePositions();
   const { redeemPosition, isRedeeming, redeemingPositionId } = useRedeemPosition();
+  const { data: redemptionHistory, isLoading: isLoadingHistory } = useRedemptionHistory();
   const { toast } = useToast();
 
   const handleRedeem = async (position: Position) => {
@@ -275,6 +277,67 @@ export default function PositionsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Redemption History (On-chain) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Redemption History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistory ? (
+            <PositionsTableSkeleton />
+          ) : !redemptionHistory || redemptionHistory.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No redemption history found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Condition ID</TableHead>
+                  <TableHead className="text-right">Payout</TableHead>
+                  <TableHead>Block</TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {redemptionHistory.map((event) => (
+                  <TableRow key={event.transactionHash}>
+                    <TableCell className="font-mono text-xs">
+                      {event.conditionId.slice(0, 10)}...{event.conditionId.slice(-8)}
+                    </TableCell>
+                    <TableCell className="text-right text-green-500 font-medium">
+                      +{formatNumber(parseFloat(event.payoutFormatted), 2)} USDT
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      #{event.blockNumber.toString()}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        asChild
+                      >
+                        <a
+                          href={`https://bscscan.com/tx/${event.transactionHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
