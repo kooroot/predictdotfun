@@ -48,10 +48,10 @@ export function useRedeemPosition() {
         // Convert wallet client to ethers signer
         const signer = await walletClientToSigner(walletClient);
 
-        // Initialize OrderBuilder with signer (cast as any for SDK compatibility)
+        // Initialize OrderBuilder with signer
         const sdkChainId = chainId === 56 ? ChainId.BnbMainnet : ChainId.BnbTestnet;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const orderBuilder = await OrderBuilder.make(sdkChainId, signer as any);
+        // @ts-expect-error - SDK expects BaseWallet but JsonRpcSigner works at runtime
+        const orderBuilder = await OrderBuilder.make(sdkChainId, signer);
 
         // Validate indexSet is 1 or 2
         const indexSet = position.outcomeIndexSet as 1 | 2;
