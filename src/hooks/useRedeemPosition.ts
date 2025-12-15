@@ -53,57 +53,36 @@ export function useRedeemPosition() {
         // @ts-expect-error - SDK expects BaseWallet but JsonRpcSigner works at runtime
         const orderBuilder = await OrderBuilder.make(sdkChainId, signer);
 
-        // Set only the required approval based on market type
-        if (position.isNegRisk) {
-          console.log("Setting NegRiskAdapter approval...");
-          const approvalResult = await orderBuilder.setNegRiskAdapterApproval(position.isYieldBearing);
-          if (!approvalResult.success) {
-            console.error("NegRiskAdapter approval failed:", approvalResult);
-            return { success: false, error: "Failed to set NegRiskAdapter approval" };
-          }
-        } else {
-          console.log("Setting CTF Exchange approval...");
-          const approvalResult = await orderBuilder.setCtfExchangeApproval(false, position.isYieldBearing);
-          if (!approvalResult.success) {
-            console.error("CTF Exchange approval failed:", approvalResult);
-            return { success: false, error: "Failed to set CTF Exchange approval" };
-          }
-        }
-        console.log("Approval set successfully");
-
         // Validate indexSet is 1 or 2
         const indexSet = position.outcomeIndexSet as 1 | 2;
         if (indexSet !== 1 && indexSet !== 2) {
           return { success: false, error: `Invalid indexSet: ${position.outcomeIndexSet}` };
         }
 
-        // Prepare redeem params
-        const redeemParams: {
-          conditionId: string;
-          indexSet: 1 | 2;
-          isNegRisk: boolean;
-          isYieldBearing: boolean;
-          amount?: bigint;
-        } = {
-          conditionId: position.conditionId,
-          indexSet,
-          isNegRisk: position.isNegRisk,
-          isYieldBearing: position.isYieldBearing,
-        };
-
-        // For NegRisk markets, amount is required
-        if (position.isNegRisk) {
-          redeemParams.amount = BigInt(position.amount);
-        }
+        // Build redeem params based on market type
+        // SDK docs: https://github.com/predictdotfun/sdk#how-to-redeem-positions
+        const redeemParams = position.isNegRisk
+          ? {
+              conditionId: position.conditionId,
+              indexSet,
+              amount: BigInt(position.amount),
+              isNegRisk: true as const,
+              isYieldBearing: position.isYieldBearing,
+            }
+          : {
+              conditionId: position.conditionId,
+              indexSet,
+              isNegRisk: false as const,
+              isYieldBearing: position.isYieldBearing,
+            };
 
         // Debug log
         console.log("Redeem params:", {
           ...redeemParams,
-          amount: redeemParams.amount?.toString(),
-          positionAmount: position.amount,
+          amount: position.isNegRisk ? redeemParams.amount?.toString() : undefined,
         });
 
-        // Call SDK redeem
+        // Call SDK redeem - SDK handles contract selection based on isNegRisk
         const result = await orderBuilder.redeemPositions(redeemParams);
 
         if (result.success) {
