@@ -142,6 +142,17 @@ export default function OrdersPage() {
     });
   };
 
+  const formatCreatedAt = (timestamp: number | undefined) => {
+    if (!timestamp) return "-";
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const formatAmount = (amountWei: string) => {
     // Convert from wei (18 decimals) to readable number
     const amount = parseFloat(amountWei) / 1e18;
@@ -286,6 +297,7 @@ export default function OrdersPage() {
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Filled</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -340,6 +352,9 @@ export default function OrdersPage() {
                       <Badge variant={getStatusBadgeVariant(order.status)}>
                         {order.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatCreatedAt(order.createdAt)}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {formatExpiration(order.expiration)}

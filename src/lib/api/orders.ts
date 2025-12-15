@@ -126,10 +126,13 @@ export const ordersApi = {
         const result = results[j];
         if (result.status === "fulfilled") {
           const order = result.value;
-          // Add pricePerShare from local storage
+          // Add pricePerShare and createdAt from local storage
           const storedOrder = batch[j];
           if (storedOrder?.pricePerShare) {
             order.pricePerShare = storedOrder.pricePerShare;
+          }
+          if (storedOrder?.createdAt) {
+            order.createdAt = storedOrder.createdAt;
           }
           orders.push(order);
         }

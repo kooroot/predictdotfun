@@ -132,6 +132,7 @@ export interface Order {
   makerAmount: string;
   takerAmount: string;
   pricePerShare?: string; // From local storage (wei string)
+  createdAt?: number; // From local storage (timestamp)
 }
 
 // Signed order structure for API submission
