@@ -194,6 +194,9 @@ export interface PositionResponse {
     title: string;
     question: string;
     status: string;
+    conditionId: string;
+    isNegRisk: boolean;
+    isYieldBearing: boolean;
   };
   outcome: {
     name: string;
@@ -210,10 +213,16 @@ export interface Position {
   id: string;
   marketId: number;
   marketTitle: string;
+  marketStatus: string;
   outcomeName: string;
+  outcomeIndexSet: number;
   outcomeStatus: "WON" | "LOST" | null;
   amount: string;
   valueUsd: string;
+  // For redeeming
+  conditionId: string;
+  isNegRisk: boolean;
+  isYieldBearing: boolean;
 }
 
 // Account types

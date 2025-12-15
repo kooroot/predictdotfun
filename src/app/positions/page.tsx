@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePositions } from "@/hooks/api/usePositions";
 import { useApiKey } from "@/hooks/useApiKey";
 import { useAuth } from "@/providers/AuthProvider";
+import { useRedeemPosition } from "@/hooks/useRedeemPosition";
+import { useToast } from "@/hooks/use-toast";
 import { ApiKeyRequired } from "@/components/layout/ApiKeyRequired";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,14 +20,35 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
-import { Wallet } from "lucide-react";
+import { Wallet, Loader2, Gift } from "lucide-react";
 import { useAccount } from "wagmi";
+import type { Position } from "@/types/api";
 
 export default function PositionsPage() {
   const { isConnected } = useAccount();
   const { isConfigured, isRequired } = useApiKey();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
-  const { data: positions, isLoading } = usePositions();
+  const { data: positions, isLoading, refetch } = usePositions();
+  const { redeemPosition, isRedeeming, redeemingPositionId } = useRedeemPosition();
+  const { toast } = useToast();
+
+  const handleRedeem = async (position: Position) => {
+    const result = await redeemPosition(position);
+    if (result.success) {
+      toast({
+        title: "Position Redeemed",
+        description: `Successfully redeemed your ${position.outcomeName} position. TX: ${result.txHash?.slice(0, 10)}...`,
+      });
+      // Refetch positions after successful redeem
+      refetch();
+    } else {
+      toast({
+        title: "Redemption Failed",
+        description: result.error || "Unknown error occurred",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isRequired && !isConfigured) {
     return <ApiKeyRequired />;
@@ -112,6 +135,7 @@ export default function PositionsPage() {
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Value (USD)</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -153,6 +177,24 @@ export default function PositionsPage() {
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground">Active</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {position.outcomeStatus === "WON" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRedeem(position)}
+                          disabled={isRedeeming && redeemingPositionId === position.id}
+                          className="text-green-500 border-green-500 hover:bg-green-500/10"
+                        >
+                          {isRedeeming && redeemingPositionId === position.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          ) : (
+                            <Gift className="h-4 w-4 mr-1" />
+                          )}
+                          Redeem
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
