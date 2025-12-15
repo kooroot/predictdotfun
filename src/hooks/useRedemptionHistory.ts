@@ -4,17 +4,25 @@ import { useQuery } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
 import { parseAbiItem, formatEther } from "viem";
 
-// All ConditionalTokens contract addresses that can emit PayoutRedemption events
-const CONDITIONAL_TOKENS_ADDRESSES = {
+// All contract addresses that can emit PayoutRedemption events
+const REDEMPTION_CONTRACT_ADDRESSES = {
   mainnet: [
+    // ConditionalTokens contracts
     "0x22DA1810B194ca018378464a58f6Ac2B10C9d244", // CONDITIONAL_TOKENS & NEG_RISK_CONDITIONAL_TOKENS
     "0x9400F8Ad57e9e0F352345935d6D3175975eb1d9F", // YIELD_BEARING_CONDITIONAL_TOKENS
     "0xF64b0b318AAf83BD9071110af24D24445719A07F", // YIELD_BEARING_NEG_RISK_CONDITIONAL_TOKENS
+    // NegRiskAdapter contracts (also emit PayoutRedemption)
+    "0xc3Cf7c252f65E0d8D88537dF96569AE94a7F1A6E", // NEG_RISK_ADAPTER
+    "0x41dCe1A4B8FB5e6327701750aF6231B7CD0B2A40", // YIELD_BEARING_NEG_RISK_ADAPTER
   ] as const,
   testnet: [
+    // ConditionalTokens contracts
     "0x2827AAef52D71910E8FBad2FfeBC1B6C2DA37743", // CONDITIONAL_TOKENS & NEG_RISK_CONDITIONAL_TOKENS
     "0x38BF1cbD66d174bb5F3037d7068E708861D68D7f", // YIELD_BEARING_CONDITIONAL_TOKENS
     "0x26e865CbaAe99b62fbF9D18B55c25B5E079A93D5", // YIELD_BEARING_NEG_RISK_CONDITIONAL_TOKENS
+    // NegRiskAdapter contracts
+    "0x285c1B939380B130D7EBd09467b93faD4BA623Ed", // NEG_RISK_ADAPTER
+    "0xb74aea04bdeBE912Aa425bC9173F9668e6f11F99", // YIELD_BEARING_NEG_RISK_ADAPTER
   ] as const,
 };
 
@@ -43,8 +51,8 @@ export function useRedemptionHistory() {
       if (!address || !publicClient) return [];
 
       const contractAddresses = chainId === 56
-        ? CONDITIONAL_TOKENS_ADDRESSES.mainnet
-        : CONDITIONAL_TOKENS_ADDRESSES.testnet;
+        ? REDEMPTION_CONTRACT_ADDRESSES.mainnet
+        : REDEMPTION_CONTRACT_ADDRESSES.testnet;
 
       try {
         // Query PayoutRedemption events for this user
