@@ -86,9 +86,29 @@ export function useRedeemPosition() {
         const result = await orderBuilder.redeemPositions(redeemParams);
 
         if (result.success) {
+          // Save to localStorage for instant display
+          const txHash = result.receipt?.hash;
+          if (txHash) {
+            const localRedemption = {
+              transactionHash: txHash,
+              blockNumber: result.receipt?.blockNumber?.toString() || "0",
+              conditionId: position.conditionId,
+              payout: position.amount,
+              payoutFormatted: (parseFloat(position.amount) / 1e18).toFixed(4),
+              timestamp: Date.now(),
+              marketTitle: position.marketTitle,
+              outcomeName: position.outcomeName,
+            };
+
+            const stored = localStorage.getItem("redemptionHistory");
+            const history = stored ? JSON.parse(stored) : [];
+            history.unshift(localRedemption);
+            localStorage.setItem("redemptionHistory", JSON.stringify(history.slice(0, 50))); // Keep last 50
+          }
+
           return {
             success: true,
-            txHash: result.receipt?.hash,
+            txHash,
           };
         } else {
           return {

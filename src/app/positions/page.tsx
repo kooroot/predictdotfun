@@ -278,7 +278,7 @@ export default function PositionsPage() {
         </Card>
       )}
 
-      {/* Redemption History (On-chain) */}
+      {/* Redemption History */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -297,23 +297,44 @@ export default function PositionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Condition ID</TableHead>
+                  <TableHead>Market / Condition</TableHead>
+                  <TableHead>Outcome</TableHead>
                   <TableHead className="text-right">Payout</TableHead>
-                  <TableHead>Block</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {redemptionHistory.map((event) => (
                   <TableRow key={event.transactionHash}>
-                    <TableCell className="font-mono text-xs">
-                      {event.conditionId.slice(0, 10)}...{event.conditionId.slice(-8)}
+                    <TableCell>
+                      {event.marketTitle ? (
+                        <span className="font-medium">{event.marketTitle}</span>
+                      ) : (
+                        <span className="font-mono text-xs">
+                          {event.conditionId.slice(0, 10)}...{event.conditionId.slice(-8)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {event.outcomeName ? (
+                        <Badge
+                          variant="secondary"
+                          className={event.outcomeName === "Yes" ? "bg-green-600" : "bg-red-600"}
+                        >
+                          {event.outcomeName}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right text-green-500 font-medium">
                       +{formatNumber(parseFloat(event.payoutFormatted), 2)} USDT
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      #{event.blockNumber.toString()}
+                    <TableCell>
+                      <Badge variant={event.source === "local" ? "outline" : "secondary"}>
+                        {event.source === "local" ? "Local" : "On-chain"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Button

@@ -23,11 +23,16 @@ const PAYOUT_REDEMPTION_EVENT = parseAbiItem(
 
 export interface RedemptionEvent {
   transactionHash: string;
-  blockNumber: bigint;
+  blockNumber: bigint | string;
   conditionId: string;
   payout: string;
   payoutFormatted: string;
-  contractAddress: string;
+  contractAddress?: string;
+  // Local storage fields
+  timestamp?: number;
+  marketTitle?: string;
+  outcomeName?: string;
+  source?: "local" | "onchain";
 }
 
 export function useRedemptionHistory() {
@@ -39,9 +44,29 @@ export function useRedemptionHistory() {
     queryFn: async (): Promise<RedemptionEvent[]> => {
       if (!address || !publicClient) return [];
 
+      // 1. Get local redemptions first (instant)
+      const localRedemptions: RedemptionEvent[] = [];
+      try {
+        const stored = localStorage.getItem("redemptionHistory");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          for (const item of parsed) {
+            localRedemptions.push({
+              ...item,
+              source: "local" as const,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse local redemption history:", e);
+      }
+
+      // 2. Fetch on-chain data
       const adapterAddresses = chainId === 56
         ? NEG_RISK_ADAPTER_ADDRESSES.mainnet
         : NEG_RISK_ADAPTER_ADDRESSES.testnet;
+
+      const onchainEvents: RedemptionEvent[] = [];
 
       try {
         const currentBlock = await publicClient.getBlockNumber();
@@ -73,6 +98,7 @@ export function useRedemptionHistory() {
                   payout: log.args.payout?.toString() || "0",
                   payoutFormatted: formatEther(log.args.payout || BigInt(0)),
                   contractAddress: contractAddr,
+                  source: "onchain",
                 });
               }
             } catch (err) {
@@ -84,16 +110,27 @@ export function useRedemptionHistory() {
         });
 
         const adapterLogs = await Promise.all(adapterLogsPromises);
-        const allEvents = adapterLogs.flat();
-
-        // Sort by block number descending (most recent first)
-        allEvents.sort((a, b) => Number(b.blockNumber - a.blockNumber));
-
-        return allEvents;
+        onchainEvents.push(...adapterLogs.flat());
       } catch (error) {
-        console.error("Failed to fetch redemption history:", error);
-        return [];
+        console.error("Failed to fetch on-chain redemption history:", error);
       }
+
+      // 3. Merge: dedupe by txHash, prefer on-chain data
+      const txHashSet = new Set(onchainEvents.map((e) => e.transactionHash));
+      const uniqueLocalEvents = localRedemptions.filter(
+        (e) => !txHashSet.has(e.transactionHash)
+      );
+
+      const allEvents = [...uniqueLocalEvents, ...onchainEvents];
+
+      // Sort by block number / timestamp descending
+      allEvents.sort((a, b) => {
+        const aNum = typeof a.blockNumber === "bigint" ? Number(a.blockNumber) : (a.timestamp || 0);
+        const bNum = typeof b.blockNumber === "bigint" ? Number(b.blockNumber) : (b.timestamp || 0);
+        return bNum - aNum;
+      });
+
+      return allEvents;
     },
     enabled: !!address && !!publicClient,
     staleTime: 60 * 1000,
