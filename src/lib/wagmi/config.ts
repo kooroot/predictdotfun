@@ -3,9 +3,9 @@ import { bsc, bscTestnet } from "wagmi/chains";
 import { http } from "wagmi";
 import { createStorage } from "wagmi";
 
-// BSC official public RPC endpoints (CORS enabled, no API key required)
-const BSC_RPC = "https://bsc-dataseed.binance.org";
-const BSC_TESTNET_RPC = "https://data-seed-prebsc-1-s1.binance.org:8545";
+// PublicNode RPC endpoints (CORS enabled, no API key required)
+const BSC_RPC = "https://bsc-rpc.publicnode.com";
+const BSC_TESTNET_RPC = "https://bsc-testnet-rpc.publicnode.com";
 
 export const wagmiConfig = getDefaultConfig({
   appName: "Predict.fun Trading",
